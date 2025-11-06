@@ -1,0 +1,1109 @@
+
+import os
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, current_app, flash
+from ..models.models import db, User, ConversationLog, QuizAnswer, QuizAttempt, UserProgress
+from openai import OpenAI
+from werkzeug.security import generate_password_hash
+
+client = OpenAI(
+    api_key=os.getenv("GOKU_API_KEY"),
+    base_url=os.getenv("GOKU_BASE_URL")
+)
+
+curriculum = {
+    'algoritma': [
+        {
+            'step': 0, 
+            'title': 'Pendahuluan', 
+            'type': 'socratic_question', 
+            'is_concludable': True,
+            'ct': 'Interpretasi', 
+            'opening_message': "Halo! Saya SocraMind, tutor AI Anda. Mari kita mulai dengan pertanyaan pertama: Menurutmu, apa arti dari algoritma?",
+            'instruction': """
+            Tugas Anda adalah memulai percakapan dan mengevaluasi pemahaman awal siswa tentang 'algoritma'.
+            2. Analisis jawaban PERTAMA dari siswa dan respons sesuai kondisi berikut:
+                - JIKA siswa menjawab benar atau cukup masuk akal: Beri respons non-validasi untuk memancing diskusi. Contoh: "Oh begitu ya, coba jelaskan lebih lanjut maksudmu." (Ini akan memicu jawaban kedua dari siswa, JANGAN gunakan [SELESAI])".
+                - JIKA siswa menjawab salah: Beri respons ini secara persis: "Hmm apakah benar begitu? ayo kita pastikan bersama-sama setelah ini!" dan WAJIB akhiri dengan sinyal `[SELESAI]`.
+                - JIKA siswa menjawab 'tidak tahu', 'belum belajar', atau sejenisnya: Beri respons ini secara persis: "tidak apa-apa, ayoo kita pelajari terlebih dahulu bersama sama" dan WAJIB akhiri dengan sinyal `[SELESAI]`.
+            3. JIKA Anda meminta jawaban kedua (karena jawaban pertama bagus): Setelah siswa memberikan jawaban KEDUA, berikan respons penutup singkat seperti 'Sip, mari kita pastikan bersama setelah ini yaa!' dan WAJIB akhiri dengan sinyal `[SELESAI]`.
+            """
+        },
+        {
+            'step': 1, 
+            'title': 'Materi Algoritma dan Pemrograman', 
+            'type': 'static_content', 
+            'content_file': 'materi/algoritma_pengertian.html' 
+        },
+        {
+            'step': 2, 
+            'title': 'Klarifikasi Pemahaman', 
+            'type': 'multi_stage_socratic', 
+            'is_concludable': True,
+            'ct': 'Interpretasi, Analisis, Evaluasi, Inferensi, Eksplanasi, Regulasi Diri', 
+            'opening_message': "Oke, sekarang setelah membaca materi, coba jelaskan kembali apa itu algoritma dengan bahasamu sendiri.",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memperdalam pemahaman tentang 'algoritma' melalui 6 tujuan Socratic secara berurutan. Anda yang mengontrol alur percakapan.
+            ATURAN SANGAT PENTING UNTUK LANGKAH INI:
+            - Ajukan HANYA SATU pertanyaan pada satu waktu. Tunggu jawaban siswa sebelum melanjutkan ke pertanyaan atau tujuan berikutnya. Jangan menggabungkan beberapa pertanyaan dalam satu pesan.
+            - Pada kalimat penutup JANGAN SEBUTKAN 6 TUJUAN SOCRATIC secara langsung
+            ALUR KERJA WAJIB:
+            1. Setelah siswa memberikan jawaban awal, pandu mereka melalui 6 pertanyaan socratic ini, SATU PER SATU:
+                - Tujuan 1: Pertanyaan untuk Menyelidiki Klarifikasi (Pastikan definisinya jelas).
+                - Tujuan 2: Pertanyaan untuk Menyelidiki Asumsi (Tantang asumsi di balik definisinya).
+                - Tujuan 3: Pertanyaan untuk Menyelidiki Alasan dan Bukti (Tantang mereka untuk memberikan alasan ataupun bukti dibalik asumsi sebelumnya)
+                - Tujuan 4: Pertanyaan untuk Menyelidiki Implikasi dan Konsekuensi
+                - Tujuan 5: Pertanyaan untuk Menyelidiki Sudut Pandang dan Perspektif lain
+                - Tujuan 6: Pertanyaan untuk Memastikan kembali pertanyaan tiap pertanyaan
+            2. ATURAN ADAPTIF PALING PENTING:
+                - Anda HARUS TETAP di tujuan saat ini sampai Anda menilai pemahaman siswa sudah cukup baik.
+                - JIKA siswa menjawab salah, 'tidak tahu', atau bingung pada tujuan saat ini (misalnya, di Tujuan 1: Klarifikasi), maka pertanyaan atau petunjuk Anda berikutnya HARUS TETAP bertujuan untuk Klarifikasi. JANGAN pindah ke Tujuan 2: Menyelidiki Asumsi.
+                - Contoh: Jika di Tujuan 1 siswa bingung, berikan analogi (seperti resep masakan atau rute GPS) untuk membantu mengklarifikasi, BUKAN untuk menyelidiki asumsi.
+            3. Setelah Anda yakin sebuah tujuan tercapai, barulah Anda boleh pindah ke tujuan berikutnya dengan transisi yang alami.
+            4. Setelah semua 6 tujuan tercapai, akhiri respons terakhir dengan kalimat penutup dan WAJIB diakhiri dengan sinyal `[SELESAI]`.
+            """,
+        },
+        {
+            'step': 3,
+            'title': 'Tipe Data',
+            'type': 'multi_stage_socratic',
+            'is_concludable': True,
+            'ct': 'Interpretasi, Analisis',
+            'opening_message': "Bagus sekali! Sekarang kita sudah lebih paham tentang algoritma, mari kita bahas 'bahan baku'-nya, yaitu Tipe Data. Pernah dengar istilah itu?",
+            'illustration_image': 'Tipe-Data.png',
+            'instruction': """
+            Tugas Anda adalah memandu siswa memahami konsep Tipe Data dan Operator Aritmatika dasar melalui 4 tujuan Socratic. Anda yang mengontrol alur percakapan.
+            ATURAN SANGAT PENTING UNTUK LANGKAH INI: JANGAN BERI VALIDASI seperti "Benar" atau "Tepat Sekali" dan sebagainya apabila percakapan belum mencapai akhir.
+            1. Setelah siswa menjawab pertanyaan pembuka, pandu mereka secara berurutan melalui 4 tujuan ini:
+                - Tujuan 1: Pertanyaan untuk Klarifikasi & Contoh (Klarifikasi definisi Tipe Data dan minta contoh).
+                - Tujuan 2: Pertanyaan tentang Penggunaan & Konsekuensi (Bahas penggunaan praktis dan akibat jika salah pakai).
+                - Tujuan 3: Pertanyaan Asumsi (Hubungkan Tipe Data dengan operator yang bisa digunakan).
+                - Tujuan 4: Sudut Pandang lain dan Refleksi (Tutup dengan pertanyaan meta).
+            2. ATURAN ADAPTIF: Jika siswa bingung di satu tujuan, tetaplah di tujuan itu dan berikan petunjuk. Jangan pindah ke tujuan berikutnya sampai siswa cukup paham.
+            3. ALUR KHUSUS TUJUAN 3:
+                a. Mulai dengan pertanyaan pancingan. Contoh: "Oke, kita sudah punya 'wadah' (variabel) dan 'isi' (tipe data). Sekarang, bagaimana cara kita 'mengolah' isi tersebut? Misalnya, jika kita punya dua variabel angka, `a = 10` dan `b = 5`, menurutmu simbol apa yang kita gunakan untuk menjumlahkannya?"
+                b. Setelah siswa menjawab (jawaban: `+`), berikan pertanyaan Socratic yang menantang. Contoh: "Tepat. Sekarang, apa yang terjadi jika kita menggunakan simbol `+` yang sama pada dua data bertipe teks, misalnya `'Halo' + 'Dunia'`? Apakah hasilnya akan sama dengan penjumlahan angka?"
+                c. Pandu diskusi singkat ini untuk menyimpulkan bahwa fungsi operator bisa berbeda tergantung tipe datanya.
+            4. ALUR KHUSUS TUJUAN 4:
+                a. Berikan pertanyaan berupa studi kasus tentang sudut pandang lain dan tanyakan pendapat siswa
+            5. Setelah semua 4 tujuan tercapai, akhiri respons terakhir dengan kalimat penutup dan WAJIB diakhiri dengan sinyal [SELESAI].
+            """,
+        },
+{
+            'step': 4,
+            'title': 'Prediksi & Eksekusi Program',
+            'type': 'modify_code',
+            'is_concludable': True, 
+            'ct': 'Analisis & Evaluasi', 
+            'primm': 'Predict, Run, Investigate',
+            'hide_run_button_initially': True,
+            'opening_message': "Oke, kita masuk ke tahap prediksi. Perhatikan kode di editor. Menurutmu apa output yang akan muncul?",
+            'base_code': 'panjang = 10\nlebar = 5\nluas = panjang * lebar\nprint(f"Luas persegi panjang adalah: {luas}")',
+            'instruction': """
+            Tugas Anda adalah memandu siswa melalui alur Socratic Predict -> Investigate -> Run -> Evaluate.
+            Jawaban output yang benar adalah "Luas persegi panjang adalah: 50".
+
+            ALUR PERCAKAPAN WAJIB (ikuti langkah demi langkah):
+            1.  Setelah siswa memberikan **prediksi awalnya**, jangan validasi. Tanyakan asumsi mereka (Pertanyaan untuk Menyelidiki Asumsi). Contoh: "Oke, itu prediksimu. Apa yang mendasari pemikiranmu sampai ke jawaban itu?"
+            2.  Setelah siswa memberikan **asumsinya**, minta bukti rasional (Pertanyaan untuk Menyelidiki Alasan dan Bukti Rasional). Contoh: "Bisa jelaskan lebih detail alasan logis di balik asumsimu itu?"
+            3.  Setelah siswa memberikan **alasan logisnya**, instruksikan mereka untuk menjalankan kode dan WAJIB SERTAKAN sinyal `[TAMPILKAN_JALANKAN_KODE]` di akhir respons Anda. Contoh: "Baik, teorimu sudah kusimpan. Sekarang, silakan klik tombol 'Jalankan Kode' pada kode editor di atas. Apakah prediksimu sesuai dengan outputnya? [TAMPILKAN_JALANKAN_KODE]"
+            4.  Setelah siswa memberitahu **output sebenarnya**, bandingkan dengan prediksi awal mereka di histori percakapan. Pilih salah satu dari dua alur di bawah ini:
+
+                --> ALUR JIKA PREDIKSI SISWA BENAR (sesuai output):
+                    a. Berikan penguatan positif. Tanyakan: "Prediksimu sama dengan hasilnya. Apa yang membuatmu begitu yakin dengan analisismu dari awal?"
+                    b. Setelah siswa menjawab, ajukan pertanyaan implikasi & konsekuensi (Pertanyaan untuk Menyelidiki Implikasi dan Konsekuensi). Contoh: "Pemikiran yang bagus. Menurutmu, apa konsekuensinya jika kita lupa baris `print()` di akhir kode itu?"
+                    c. Setelah siswa menjawab, berikan pertanyaan reflektif (Pertanyaan tentang Pertanyaan) dan kalimat penutup dan WAJIB akhiri dengan sinyal [SELESAI].
+
+                --> ALUR JIKA PREDIKSI SISWA SALAH (tidak sesuai output):
+                    a. Arahkan perhatian pada perbedaan. Tanyakan: "Nah, sepertinya ada perbedaan antara prediksimu dengan hasil sebenarnya. Menurutmu, bagian mana dari kode yang membuat prediksimu berbeda dan apa alasannya?"
+                    b. Setelah siswa mencoba menganalisis kesalahannya, berikan penjelasan singkat dan jelas. Contoh: "Analisis yang bagus. Kesalahan umum terjadi saat .... Output yang benar adalah '50' karena variabel 'luas' menyimpan hasil perkalian 10 * 5."
+                    c. Berikan kalimat penutup yang menyemangati dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        {
+            'step': 5,
+            'title': 'Investigasi Kode Program', 
+            'type': 'socratic_question',
+            'is_concludable': True,
+            'ct': 'Analisis',
+            'opening_message': "Oke, disini kita akan bedah pola struktur kode. Kebanyakan program sederhana akan memiliki struktur seperti ini: **Input -> Proses -> Output**.\n\nCoba lihat kode ini:\n"
+                            "<pre><code># Tahap Input\n"
+                            "sisi = 10\n\n"
+                            "# Tahap Proses\n"
+                            "luas = sisi * sisi\n\n"
+                            "# Tahap Output\n"
+                            "print(luas)</code></pre>\n"
+                            "Bisa jelaskan dengan bahasamu sendiri, apa yang terjadi di setiap tahap (Input, Proses, dan Output) pada kode itu?",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memahami struktur dasar Input-Proses-Output dan Tipe Data.
+            ALUR WAJIB:
+            1.  Setelah siswa menjelaskan pemahamannya tentang Input-Proses-Output, ajukan pertanyaan untuk menyelidiki asumsi tentang **Tipe Data**. CONTOHNYA: "Penjelasan yang bagus! Kalau kita ingat materi Tipe Data, menurutmu, variabel `sisi` dan `luas` pada kode itu menyimpan tipe data apa ya?"
+            2.  Setelah siswa menjawab (jawaban benar: integer/bilangan bulat), berikan pertanyaan lanjutan. Tanyakan pertanyaan untuk menyelidiki implikasi dan konsekuensi. CONTOHNYA: "Tepat sekali. Lalu, menurutmu apa yang akan terjadi pada hasil akhirnya jika nilai `sisi` kita ubah menjadi `10.5`?"
+            3.  Setelah siswa menjawab pertanyaan kedua, berikan kalimat penutup yang menyimpulkan dan mengaitkan ke step berikutnya. Contoh: "Luar biasa! Kamu sudah paham bagaimana struktur dasar dan tipe data bekerja sama. Sekarang, ayo kita gunakan pemahaman ini untuk menganalisis kode yang sedikit lebih kompleks." dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        {
+            'step': 6,
+            'title': 'Modifikasi Kode Program',
+            'type': 'modify_code',
+            'is_concludable': True,
+            'ct': 'Analisis, Inferensi',
+            'primm': 'Modify',
+            'opening_message': "Sekarang kita coba tantangan logika. kode di atas merupakan program yang bertujuan untuk menukar isi dari 'gelasA' dan 'gelasB'. gelasA nantinya harus bernilai 20 dan gelasB bernilai 10. Coba jalankan programnya. Apakah outputnya sudah benar atau salah?",
+            'base_code': "gelasA = 10  # Anggap berisi Kopi\ngelasB = 20  # Anggap berisi Teh\n\n# Mencoba menukar isi kedua gelas\ngelasA = gelasB\ngelasB = gelasA\n\nprint(f\"Isi Gelas A: {gelasA}, Isi Gelas B: {gelasB}\")",
+            'instruction': """
+            Tugas Anda adalah memandu siswa untuk menemukan solusi dalam masalah menukar nilai dua variabel.
+            Konteks: Siswa melihat kode yang gagal menukar nilai (hasilnya kedua variabel akan sama).
+            ALUR KERJA WAJIB:
+            1.  Tahap 1 (Pertanyaan untuk Menyelidiki Asumsi): Setelah siswa memberikan hasil (yang seharusnya `Isi Gelas A: 20, Isi Gelas B: 20`), tanyakan mengapa isi Gelas A hilang dan kedua gelas menjadi sama.
+            2.  Tahap 2 (Pertanyaan untuk Menyelidki Implikasi atau Sudut Pandang dan Perspektif): Gunakan analogi. Tanyakan, "Jika kamu punya segelas Kopi dan segelas Teh dan ingin menukar isinya, apa yang kamu butuhkan?". Bimbing dia untuk menemukan ide 'gelas kosong' atau variabel sementara. Minta dia untuk menambahkan variabel `temp` dan memperbaiki logikanya, lalu menjalankan kode lagi.
+            3.  Tahap 3 (Validasi & Penutup): Setelah siswa memberikan hasil yang benar (`Isi Gelas A: 20, Isi Gelas B: 10`), berikan validasi dan pujian atas kemampuannya memecahkan masalah logika ini. Akhiri dengan sinyal `[SELESAI]`.
+            """
+        },
+        {
+            'step': 7,
+            'title': 'Membuat Kode Program',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri',
+            'primm': 'Make',
+            'opening_message': "Kamu sudah sampai di tahap akhir! Saatnya membuat program dari nol. Studi kasusnya: Bayangkan kamu punya tiga barang dengan harga 500, 1200, dan 350. Buatlah program Python di editor untuk menghitung dan menampilkan total harga dari ketiga barang tersebut. Kemudian jelaskan kepadaku outputnya",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah memandu siswa melalui sesi refleksi setelah mereka membuat program.
+            Konteks: Siswa baru saja membuat program untuk menghitung total harga dan telah memberitahu Anda hasilnya di chat.
+            ALUR KERJA WAJIB:
+            1.  Mulai Sesi Refleksi: JANGAN komentari benar atau salahnya hasil. Langsung ajukan pertanyaan reflektif pertama (Pertanyaan tentang Pertanyaan). Contoh: "Okee. Dari kode yang kamu buat, seberapa yakin kamu dengan solusimu? Apa yang membuatmu yakin atau mungkin kurang yakin?"
+            2.  Lanjutkan Refleksi: 
+                a. Berdasarkan jawaban siswa, ajukan 1 hingga 3 pertanyaan pendalaman lagi yang tetap fokus pada proses berpikir mereka, bukan pada kebenaran kode. Contoh: "Bagian mana dari kodemu yang menurutmu paling menantang?", "Apakah ada cara lain yang kamu pertimbangkan untuk menyelesaikan masalah ini?"
+                b. Berikan satu pertanyaan reflektif seperti "Jika seorang merancang fitur ....... namun gagal karene ......., apa yang perlu dipertanyakan?"
+            3.  Validasi & Penutup: Setelah sesi refleksi selesai (setelah 2-4 pertanyaan), berikan validasi dan kalimat penutup yang menyemangati. Contoh: "Diskusi yang menarik! Kamu sudah menyelesaikan semua materi algoritma dan pemrograman dasar! Kamu sudah siap untuk mempelajari materi berikutnyaa!" dan WAJIB akhiri dengan sinyal `[SELESAI]`.
+            """
+        }
+    ],
+    'percabangan': [
+        # Halaman 1 / Step 0: Interpretasi & Klarifikasi
+         {
+            'step': 0, 
+            'title': 'Pendahuluan',
+            'type': 'socratic_question', 
+            'is_concludable': True,
+            'ct': 'Interpretasi', 
+            'opening_message': "Kita mulai ke topik berikutnya! Coba bayangkan situasi ini: 'Saat akan berangkat, kamu melihat ke luar jendela. JIKA langit mendung, MAKA kamu membawa payung.' Pola berpikir 'jika-maka' seperti ini sebenarnya punya nama khusus lho dalam logika. Menurutmu, ini termasuk pola atau kondisi apa ya?",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memahami konsep 'percabangan' melalui analogi tanpa memberikan validasi langsung.
+            ALUR WAJIB:
+            1.  Saat siswa memberikan jawaban pertamanya (misal: 'percabangan'), JANGAN langsung memvalidasi. Alih-alih, gunakan respons netral untuk menyelidiki asumsi. Tanyakan: "Menarik sekali jawabanmu. Menurutmu, kenapa pola berpikir seperti itu penting dalam pengambilan keputusan sehari-hari?"
+            2.  Setelah siswa menjawab pertanyaan kedua, minta mereka memberikan satu contoh sederhana lainnya. Tanyakan: "Oke, saya paham maksudmu. Coba berikan satu contoh lain yang mirip dari aktivitasmu sehari-hari."
+            3.  Setelah siswa memberikan contoh, tutup dengan kalimat transisi: "Baik, kita simpan dulu ya, ayo kita masuk ke materinya!" dan WAJIB akhiri dengan sinyal [SELESAI].
+            
+            ATURAN TAMBAHAN:
+            - JIKA jawaban siswa di awal 'tidak tahu', berikan respons seperti: "Tidak apa-apa, istilah ini memang spesifik. Ayo kita pelajari dulu bersama-sama!" dan akhiri dengan sinyal [SELESAI].
+            - JIKA jawaban siswa salah atau diluar konteks, berikan respons seperti: "hmmmm benarkah begitu, sebaiknya ayo kita pelajari dulu bersama-sama!" dan akhiri dengan sinyal [SELESAI].
+            """
+        },
+        # Halaman 2 / Step 1: Materi Statis
+        {
+            'step': 1, 
+            'type': 'static_content', 
+            'title': 'Materi: Konsep Struktur Kontrol Percabangan',
+            'content_file': 'materi/percabangan_pengertian.html' 
+        },
+        
+        # Halaman 3 / Step 2: Predict & Analisis Mendalam
+        {
+            'step': 2, 
+            'title': 'Prediksi Kode Program',
+            'type': 'predict_run_investigate',
+            'is_concludable': True,
+            'ct': 'Analisis', 
+            'primm': 'Predict',
+            'opening_message': "Sekarang kita analisis kode ini bersama. Kode ini bertujuan untuk memberikan diskon berdasarkan total belanja. Kira kira apa keluaran dari kode di atas ya?",
+            'code': 'total_belanja = 125000\ndiskon = 0\n\nif total_belanja > 100000:\n    diskon = 0.1 # Diskon 10%\n\nharga_akhir = total_belanja - (total_belanja * diskon)\nprint(f"Harga setelah diskon: {harga_akhir}")',
+            'instruction': """
+            Tugas Anda adalah memandu siswa menganalisis dan memprediksi hasil kode dengan sabar. JANGAN MEMBERI JAWABAN.
+            Pastikan Anda mengajukan setidaknya tiga jenis pertanyaan Socratic (klarifikasi, asumsi, alasan).
+
+            ALUR WAJIB:
+            1.  (Pertanyaan Klarifikasi Awal) Tanyakan: "Setelah memperhatikan kode di atas, menurutmu berapa `harga_akhir` yang akan ditampilkan?"
+            2.  Analisis jawaban siswa:
+                --> JIKA SISWA MENJAWAB DENGAN BENAR ATAU MENDEKATI: Lanjutkan ke Langkah 3.
+                --> JIKA SISWA MENJAWAB "TIDAK TAHU" ATAU SALAH JAUH:
+                    a. Berikan respons yang memaklumi dan berikan petunjuk pertama (maksimal 2 petunjuk). Contoh Petunjuk 1: "Tidak apa-apa, mari kita pecah pelan-pelan. Coba lihat baris `if total_belanja > 100000:`. Menurutmu, kondisi di dalam `if` itu akan bernilai Benar atau Salah?"
+                    b. Jika masih bingung, berikan Petunjuk 2: "Betul. Karena kondisinya Benar, blok kode di dalamnya akan dijalankan. Jadi, berapa nilai baru dari variabel `diskon` setelah itu?"
+                    c. Setelah siswa mulai paham, kembali ajukan pertanyaan prediksi awal untuk mengkonfirmasi pemahaman mereka sebelum lanjut.
+            3.  (Pertanyaan Menyelidiki Asumsi) Setelah siswa memberikan prediksinya (baik di awal atau setelah petunjuk), tanyakan: "Oke, itu prediksimu. Apa asumsi utamamu saat melihat kode itu? Bagian mana yang jadi petunjuk kuncimu?"
+            4.  (Pertanyaan Menyelidiki Alasan & Bukti) Setelah siswa menjawab, gali lebih dalam. Tanyakan: "Bisa jelaskan lebih rinci alasanmu? Bagaimana kamu menggunakan petunjuk itu untuk sampai pada jawaban akhirmu?"
+            5.  Setelah siswa memberikan alasannya, tutup percakapan. Ucapkan: "Baik, semua prediksimu sudah kusimpan. Ayo kita buktikan di tahap berikutnya." dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        # Halaman 4 / Step 3: Run & Investigate
+        {
+            'step': 3,
+            'title': 'Menjalankan Program',
+            'type': 'modify_code',
+            'is_concludable': True,
+            'ct': 'Evaluasi',
+            'primm': 'Run, Investigate',
+            'opening_message': "Mari kita buktikan prediksimu. Silakan jalankan kode di atas tanpa mengubah apa pun. Beritahu aku apa output kode di atas",
+            'base_code': 'total_belanja = 125000\ndiskon = 0\n\nif total_belanja > 100000:\n    diskon = 0.1\n\nharga_akhir = total_belanja - (total_belanja * diskon)\nprint(f"Harga setelah diskon: {harga_akhir}")',
+            'instruction': """
+            Tugas Anda adalah memandu siswa mengevaluasi output program.
+            ALUR WAJIB (tanyakan satu per satu):
+
+            1. (Menyelidiki Klarifikasi) Setelah siswa mengetikkan output, tanyakan: "Apakah kamu percaya bahwa output tersebut sudah benar?"
+            2. (Menyelidiki Alasan) Tanyakan: "Apa yang membuatmu yakin (atau tidak yakin) dengan kebenaran output itu?"
+            3. (Pertanyaan Lanjutan) Berdasarkan respons siswa, ajukan satu pertanyaan lanjutan yang relevan untuk memperdalam pemahamannya.
+            4. Setelah siswa menjawab, tutup percakapan dengan: "Diskusi yang bagus! Pemikiranmu sangat logis. Ayo kita lanjut." dan akhiri dengan [SELESAI].
+            """
+        },
+        # Halaman 5 / Step 4: Investigate
+        {
+            'step': 4,
+            'title': 'Investigasi',
+            'type': 'socratic_question',
+            'is_concludable': True,
+            'ct': 'Analisis',
+            
+            'opening_message': "Nah, sekarang kita akan membedah kode, mari kita pahami 'resep' dasar penulisan percabangan. Lihat struktur umum ini ya:\n\n"
+                            "<pre><code>if kondisi:\n"
+                            "    # Lakukan sesuatu jika kondisi Benar</code></pre>\n"
+                            "Menurutmu, bagian mana yang paling penting dari 'resep' di atas? 'if', 'kondisi', atau 'Lakukan sesuatu'?",
+            'instruction': """
+            Tugas Anda adalah memandu siswa untuk memahami setiap komponen dasar dari blok 'if'.
+            ALUR WAJIB:
+            1.  Setelah siswa menjawab (misal: 'kondisi'), minta mereka untuk menjelaskan alasannya. Tanyakan pertanyaan menyelidiki klarifikasi: "Menarik. Kenapa kamu memilih bagian itu sebagai yang paling penting?"
+            2.  Setelah siswa memberi alasan, berikan pertanyaan Socratic lanjutan yang mengarahkan pada pentingnya komponen lain. Contoh: "Oke, masuk akal. Lalu, apa yang akan terjadi jika ada 'kondisi' tapi tidak ada kata kunci 'if' di depannya? Apakah komputer akan mengerti?"
+            3.  Setelah siswa menjawab, ajukan pertanyaan terakhir tentang blok indented. Tanyakan: "Poin yang bagus. Terakhir, seberapa penting bagian '# Lakukan sesuatu' harus menjorok ke dalam (indentasi)?"
+            4.  Setelah siswa menjawab, tutup dengan kalimat: "Kerja bagus! Sekarang kamu sudah paham anatomi dasarnya. Ayo kita lanjutkan!" dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        # Halaman 6 / Step 5: Modify, Eksplanasi & Inferensi
+        {
+            'step': 5,
+            'title': 'Modifikasi Kode Program',
+            'type': 'modify_code',
+            'is_concludable': True,
+            'ct': 'Eksplanasi, Inferensi',
+            'primm': 'Modify',
+            'opening_message': "Sekarang, perhatikan kode untuk menentukan status kelulusan di atas. Ayo coba klik Jalankan Kode untuk melihat hasilnya dan beritahu aku hasilnya!",
+            'base_code': "nilai = 80\n\nif nilai >= 75:\n    status = 'Lulus'\nelse:\n    status = 'Gagal'\n\nprint(status)",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memodifikasi kode dan menarik kesimpulan.
+            ALUR WAJIB (tanyakan satu per satu):
+            1. (Minta Modifikasi) Setelah siswa menjalankan kode dan memberitahukan outputnya di percakapan, minta dia memodifikasi kode program: "Oke sekarang coba kamu ubah nilai variabel `nilai` menjadi `60`, bagaimana hasilnya sekarang?"
+            2. (Mencari Alternatif) Setelah siswa menjawab, ajukan tantangan: "Oke, jadi hasilnya 'Gagal' ya. Adakah alternatif cara lain untuk mendapatkan hasil yang sama ('Gagal') tanpa mengubah variabel `nilai=60`, tapi dengan mengubah kondisi `if`-nya?"
+            3. (Menarik Kesimpulan) Setelah siswa menjawab (misal: `if nilai < 75`), tanyakan: "Tepat sekali! Jadi, apa kesimpulan yang bisa kita ambil dari percobaan ini tentang bagaimana sebuah kondisi `if-else` bekerja?"
+            4. Setelah siswa memberikan kesimpulan, tutup dengan: "Kesimpulan yang bagus! Kamu berhasil menangkap intinya." dan akhiri dengan [SELESAI].
+            """
+        },
+        # Step 6: Make - 1 Kondisi
+        {
+            'step': 6,
+            'title': 'Membuat Kode: 1 Kondisi',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri', 'primm': 'Make',
+            'opening_message': "Tantangan pertama: Buat program untuk memberikan diskon 5% jika total pembelian di atas Rp 200.000 (gunakan `total_pembelian = 250000`). Setelah selesai, kirim pesan di chat untuk memeriksanya yaa!",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah mengevaluasi kode siswa untuk kasus percabangan 1 kondisi (`if`).
+            1.  **Analisis Kode Siswa**: Periksa apakah kode menggunakan `if` dengan benar untuk mengecek `total_pembelian > 200000`.
+            2.  **JIKA KODE BENAR**: Berikan pujian, lalu ajukan pertanyaan reflektif: "Kerja bagus, kodemu sudah benar! Sekarang, seberapa yakin kamu program itu akan berfungsi dengan benar jika `total_pembelian`-nya di bawah 200.000? Apa alasanmu?" Setelah siswa menjawab, akhiri dengan [SELESAI].
+            3.  **JIKA KODE SALAH**: Jangan beri jawaban. Berikan petunjuk Socratic. Contoh: "Hmm, sepertinya ada yang kurang pas. Coba perhatikan lagi, bagaimana cara kita menulis sebuah 'kondisi' untuk memeriksa apakah suatu nilai 'lebih besar dari' nilai lainnya di dalam sebuah `if`?"
+            """
+        },
+        # Halaman 8 / Step 7: Make - 2 Kondisi
+        {
+            'step': 7,
+            'title': 'Membuat Kode: 2 Kondisi',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri', 
+            'primm': 'Make',
+            'opening_message': "Tantangan kedua: Buat program untuk menentukan apakah sebuah angka 'Positif' atau 'Negatif' (anggap 0 'Positif'). Gunakan `if-else`. Setelah selesai, beritahu aku ya!",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah mengevaluasi kode siswa untuk kasus percabangan 2 kondisi (`if-else`).
+            1.  **Analisis Kode Siswa**: Periksa apakah kode menggunakan `if-else` dengan benar untuk mengecek `angka >= 0`.
+            2.  **JIKA KODE BENAR**: Berikan pujian, lalu ajukan pertanyaan reflektif: "Tepat sekali, penggunaan `if-else` di sini sangat pas! Menurutmu, bagian mana dari kodemu yang paling krusial untuk memastikan semua angka ter-handle dengan benar?" Setelah siswa menjawab, akhiri dengan [SELESAI].
+            3.  **JIKA KODE SALAH**: Jangan beri jawaban. Berikan petunjuk Socratic. Contoh: "Hampir benar! Kamu sudah menggunakan `if`. Tapi bagaimana cara kita menangani kondisi 'jika tidak' atau sebaliknya? Keyword apa yang kita gunakan setelah blok `if` selesai?"
+            """
+        },
+        # Halaman 9 / Step 8: Make - Lebih dari 2 Kondisi
+        {
+            'step': 8,
+            'title': 'Membuat Kode: Lebih dari 2 Kondisi',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri', 
+            'primm': 'Make',
+            'opening_message': "Tantangan terakhir: Buat program untuk menentukan grade IMT ('Kurus', 'Normal', 'Berlebih'). Gunakan `if-elif-else`. Setelah selesai, kirim pesan di chat ya!",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah mengevaluasi kode siswa untuk kasus percabangan >2 kondisi (`if-elif-else`).
+            1.  **Analisis Kode Siswa**: Periksa apakah urutan dan logika `if-elif-else` sudah benar.
+            2.  **JIKA KODE BENAR**: Berikan pujian, lalu ajukan pertanyaan reflektif: "Sempurna! Urutan logikamu sudah tepat. Kenapa kamu akhirnya memilih struktur `if-elif-else` dan bukan beberapa `if` terpisah?" Setelah siswa menjawab, akhiri dengan [SELESAI].
+            3.  **JIKA KODE SALAH**: Jangan beri jawaban. Berikan petunjuk Socratic. Contoh: "Strukturnya sudah hampir benar, tapi coba perhatikan urutannya. Apa yang akan terjadi jika kita memeriksa kondisi 'Berlebih' terlebih dahulu sebelum 'Normal'? Coba pikirkan dampaknya."
+            4. Berikan satu pertanyaan reflektif sebelum ditutup seperti "Jika seorang merancang fitur ....... namun gagal karene ......., apa yang perlu dipertanyakan?"
+            """
+        }
+    ],
+    'perulangan': [
+        # Halaman 1 / Step 0: Interpretasi & Klarifikasi
+        {
+            'step': 0,
+            'title': 'Pendahuluan',
+            'type': 'socratic_question',
+            'is_concludable': True,
+            'ct': 'Interpretasi',
+            'opening_message': "Mari kita mulai topik terakhir! Bayangkan kamu sedang mendengarkan lagu favoritmu dan kamu menyetelnya dalam mode 'repeat' atau 'ulang'. Menurutmu, konsep 'mengulang sesuatu berkali-kali' ini dalam pemrograman disebut apa ya?",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memahami konsep 'perulangan' melalui analogi.
+            ALUR WAJIB:
+            1. Setelah siswa menjawab (misal: 'perulangan' atau 'looping'), berikan respons netral untuk menggali lebih dalam. Tanyakan: "Menarik. Menurutmu, kenapa kita butuh kemampuan untuk mengulang perintah di dalam program?"
+            2. Setelah siswa memberi alasan, minta mereka memberikan satu contoh lain dari kehidupan sehari-hari dimana ada proses pengulangan.
+            3. Setelah siswa memberikan contoh, tutup dengan kalimat transisi: "Contoh yang bagus! Konsepnya persis seperti itu. Ayo kita lihat materinya." dan WAJIB akhiri dengan sinyal [SELESAI].
+            4. JIKA siswa tidak tahu, arahkan langsung ke materi dengan kalimat: "Tidak apa-apa, ini adalah konsep baru. Ayo kita pelajari bersama!" dan akhiri dengan [SELESAI].
+            """
+        },
+        # Halaman 2 / Step 1: Materi Statis
+        {
+            'step': 1,
+            'type': 'static_content',
+            'title': 'Materi: Konsep Struktur Kontrol Perulangan',
+            'content_file': 'materi/perulangan_pengertian.html'
+        },
+        
+         # Halaman 3 / Step 2: Prediksi
+        {
+            'step': 2,
+            'title': 'Prediksi Kode Program',
+            'type': 'predict_run_investigate', 
+            'is_concludable': True,
+            'ct': 'Analisis',
+            'primm': 'Predict',
+            'opening_message': "Nah sekarang ayo perhatikan baik-baik kode di atas. Menurutmu apa output yang akan muncul jika kode tersebut dijalankan?",
+            'code': "for i in range(1, 6):\n    print(f\"Perulangan ke-{i}\")",
+            'instruction': """
+            Tugas Anda adalah memandu siswa menganalisis dan memprediksi hasil dari kode perulangan `for i in range(1, 6):` dengan sabar. JANGAN MEMBERI JAWABAN.
+            Pastikan Anda mengajukan setidaknya tiga jenis pertanyaan Socratic (klarifikasi, asumsi, alasan).
+
+            ALUR WAJIB:
+            1.  (Pertanyaan Klarifikasi Awal) Tanyakan: "Setelah memperhatikan kode di atas, menurutmu apa saja output yang akan muncul di layar?"
+            2.  Analisis jawaban siswa:
+                --> JIKA SISWA MENJAWAB DENGAN BENAR ATAU MENDEKATI: Lanjutkan ke Langkah 3.
+                --> JIKA SISWA MENJAWAB "TIDAK TAHU" ATAU SALAH JAUH:
+                    a. Berikan respons yang memaklumi dan berikan petunjuk pertama (maksimal 2 petunjuk). Contoh Petunjuk 1: "Tidak apa-apa, mari kita pecah pelan-pelan. Fungsi `range(1, 6)` itu gunanya untuk membuat urutan angka. Menurutmu, urutan angkanya dimulai dari berapa?"
+                    b. Jika masih bingung, berikan Petunjuk 2: "Betul, dimulai dari 1. Nah, `range` itu akan berhenti TEPAT SEBELUM angka kedua. Jadi, kalau `range(1, 6)`, angka terakhir yang akan dicetak itu berapa ya?"
+                    c. Setelah siswa mulai paham, kembali ajukan pertanyaan prediksi awal untuk mengkonfirmasi pemahaman mereka sebelum lanjut.
+            3.  (Pertanyaan Menyelidiki Asumsi) Setelah siswa memberikan prediksinya (baik di awal atau setelah petunjuk), tanyakan: "Oke, itu prediksimu. Apa asumsi utamamu tentang cara kerja `range()` yang membuatmu menjawab seperti itu?"
+            4.  (Pertanyaan Menyelidiki Alasan & Bukti) Setelah siswa menjawab, gali lebih dalam. Tanyakan: "Bisa jelaskan lebih rinci proses berpikirmu? Bagaimana perulangan `for` menggunakan urutan angka dari `range()` itu untuk mencetak hasilnya satu per satu?"
+            5.  Setelah siswa memberikan alasannya, tutup percakapan. Ucapkan: "Baik, semua prediksimu sudah kusimpan. Ayo kita buktikan di tahap berikutnya." dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        # Halaman 4 / step 3: jalankan
+        {
+            'step': 3,
+            'title': 'Jalankan Kode Program',
+            'type': 'modify_code',
+            'is_concludable': True,
+            'ct': 'Evaluasi, Regulasi Diri',
+            'primm': 'Run, Investigate',
+            'opening_message': "Sekarang, mari kita buktikan prediksimu. Silakan tekan tombol 'Jalankan Kode', lalu ketik dan kirimkan apa hasilnya di sini.",
+            'base_code': "for i in range(1, 6):\n    print(f\"Perulangan ke-{i}\")",
+            'instruction': """
+            Tugas Anda adalah memandu siswa membandingkan hasil eksekusi dengan prediksi mereka secara adaptif.
+
+            ALUR WAJIB:
+            1.  Setelah siswa mengirimkan output dari hasil eksekusi, TANYAKAN: "Oke, terima kasih. Sekarang, apakah hasil itu sesuai dengan prediksimu di tahap sebelumnya?"
+            2.  Analisis jawaban siswa ("Ya" atau "Tidak") dan pilih salah satu dari dua alur di bawah ini:
+
+                --> **ALUR JIKA SISWA MENJAWAB "YA" (Prediksinya Benar):**
+                    a. Berikan penguatan positif yang berfokus pada proses berpikir. TANYAKAN: "Bagus sekali intuisimu! Apa bagian dari kodemu yang membuatmu paling yakin dengan prediksimu dari awal?"
+                    b. Setelah siswa menjawab, berikan kalimat penutup: "Pemahaman yang bagus. Ayo kita lanjut ke tantangan berikutnya." dan WAJIB akhiri dengan sinyal [SELESAI].
+
+                --> **ALUR JIKA SISWA MENJAWAB "TIDAK" (Prediksinya Salah):**
+                    a. Ajak siswa untuk merefleksikan kesalahannya. TANYAKAN: "Tidak apa-apa, justru dari sini kita belajar. Menurutmu, bagian mana dari pemikiranmu atau kode yang membuat prediksinya keliru?"
+                    b. Setelah siswa mencoba menganalisis, berikan klarifikasi singkat dan kalimat penutup: "Analisis yang bagus. Kesalahan prediksi itu wajar kok, yang penting sekarang kamu jadi paham cara kerja `range()` yang sebenarnya. Ayo kita lanjut ke tantangan berikutnya." dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        # Halaman 5 / Step 4: investigasi
+        {
+            'step': 4,
+            'title': 'Investigasi Kode Program',
+            'type': 'socratic_question',
+            'is_concludable': True,
+            'ct': 'Analisis',
+            'opening_message': "Dalam perulangan, ada dua 'resep' utama. Yang pertama adalah `for`. Lihat strukturnya:\n\n"
+                            "<pre><code>daftar_buah = ['apel', 'jeruk', 'mangga']\n"
+                            "for buah in daftar_buah:\n"
+                            "    print(buah)</code></pre>\n"
+                            "Bisa jelaskan dengan bahasamu sendiri, apa fungsi dari baris `for buah in daftar_buah:`?",
+            'instruction': """
+            Tugas Anda adalah memandu siswa memahami anatomi dasar dari loop 'for'.
+            ALUR WAJIB:
+            1. Setelah siswa menjelaskan, ajukan pertanyaan tentang variabel 'buah'. Tanyakan: "Lalu, 'buah' itu variabel apa? Kenapa kita bisa langsung `print(buah)` padahal kita tidak pernah membuat `buah = 'apel'`?"
+            2. Setelah siswa menjawab, ajukan pertanyaan tentang indentasi. Tanyakan: "Bagus! Terakhir, kenapa baris `print(buah)` harus menjorok ke dalam?"
+            3. Setelah siswa menjawab, tutup dengan kalimat: "Pemahaman yang bagus! Itu adalah dasar dari perulangan `for`. Sekarang mari kita analisis kode yang lain." dan WAJIB akhiri dengan [SELESAI].
+            """
+        },
+        # Halaman 5 / Step 4: MODIFIKASI KODE (BARU)
+        {
+            'step': 5,
+            'title': 'Modifikasi Kode Program',
+            'type': 'modify_code',
+            'is_concludable': True,
+            'ct': 'Inferensi, Eksplanasi',
+            'primm': 'Modify',
+            'opening_message': "Tantangan untukmu! Coba modifikasi kode di editor agar program melakukan hitung mundur dari 4 ke 1.",
+            'base_code': "# Ubah kode di bawah ini untuk melakukan hitung mundur\nfor i in range(1, 5):\n    print(f\"Perulangan ke-{i}\")",
+            'instruction': """
+            Tugas Anda adalah memandu siswa dalam memodifikasi kode dan memastikan mereka paham dengan apa yang mereka lakukan.
+            ALUR WAJIB:
+            1.  Siswa akan memodifikasi kode dan menjalankannya. Setelah mereka mengirim pesan di chat (misalnya "sudah" atau mengirimkan outputnya), periksa histori percakapan dan output kode yang mereka hasilkan.
+            2.  **JIKA output siswa sudah benar** (menunjukkan hitung mundur 5 ke 1), berikan pujian dan langsung ajukan pertanyaan untuk menggali pemahaman. TANYAKAN: "Kerja bagus! Kamu berhasil melakukannya. Coba jelaskan, bagian mana dari `range()` yang kamu ubah dan kenapa perubahan itu menghasilkan hitung mundur?"
+            3.  **JIKA output siswa masih salah**, berikan petunjuk tanpa memberi jawaban. Contoh: "Hmm, sepertinya hasilnya belum sesuai. Ingat, untuk hitung mundur, kita perlu memberitahu `range()` tiga hal: angka mulai, angka berhenti, dan 'langkah'-nya. Coba lihat lagi, kira-kira bagian mana yang perlu disesuaikan?"
+            4.  Setelah siswa berhasil dan menjelaskan alasannya (mengikuti alur nomor 2), tutup dengan kalimat positif: "Penjelasan yang sangat baik! Kamu sudah siap untuk membuat program perulanganmu sendiri." dan WAJIB akhiri dengan sinyal [SELESAI].
+            """
+        },
+        
+        # Halaman 7 / Step 6: Make - Perulangan 'for'
+        {
+            'step': 6,
+            'title': 'Membuat Kode: For Loop',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri', 
+            'primm': 'Make',
+            'opening_message': "Tantangan pertama: Buat program `for` loop untuk mencetak setiap item dari daftar belanjaan `['roti', 'susu', 'keju']` dengan format 'Jangan lupa beli: [nama barang]'. Kirim pesan di chat jika sudah ya!",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah mengevaluasi kode `for` loop siswa.
+            1.  **Analisis Kode Siswa**: Periksa apakah kode menggunakan `for` loop untuk mengiterasi list dan mencetak format yang benar.
+            2.  **JIKA KODE BENAR**: Berikan pujian, lalu ajukan pertanyaan reflektif: "Bagus sekali, kodemu berfungsi dengan sempurna! Seberapa yakin kamu kode ini akan tetap berfungsi jika isi daftar belanjaannya kita tambah atau kurangi? Kenapa?" Setelah siswa menjawab, akhiri dengan [SELESAI].
+            3.  **JIKA KODE SALAH**: Jangan beri jawaban. Berikan petunjuk Socratic. Contoh: "Hampir sampai! Kamu sudah punya list-nya. Ingat, bagaimana 'resep' dasar `for` loop untuk mengambil setiap 'barang' dari 'daftar_belanjaan'?"
+            """
+        },
+        # Halaman 8 / Step 7: Make - Perulangan 'while'
+        {
+            'step': 7,
+            'title': 'Membuat Kode: While Loop',
+            'type': 'make_code',
+            'is_concludable': True,
+            'ct': 'Regulasi Diri', 
+            'primm': 'Make',
+            'opening_message': "Tantangan terakhir: Gunakan `while` loop untuk membuat program hitung mundur dari 5 ke 1, lalu cetak 'Mulai!'. Kirim pesan di chat jika sudah ya!",
+            'base_code': "# Tulis kodemu di sini...\n",
+            'instruction': """
+            Tugas Anda adalah mengevaluasi kode `while` loop siswa.
+            1.  **Analisis Kode Siswa**: Periksa apakah ada inisialisasi variabel, kondisi `while`, dan perubahan variabel di dalam loop.
+            2.  **JIKA KODE BENAR**: Berikan pujian, lalu ajukan pertanyaan reflektif: "Kerja bagus, logikanya tepat! Menurutmu, apa yang akan terjadi jika kamu lupa menulis baris yang mengurangi nilai variabel hitungan? Apa nama dari kondisi itu?" Setelah siswa menjawab, akhiri dengan [SELESAI].
+            3.  **JIKA KODE SALAH**: Jangan beri jawaban. Berikan petunjuk Socratic. Contoh: "Strukturnya sudah benar! Tapi sepertinya ada yang kurang. Di dalam `while`, bagaimana cara kita memastikan perulangannya akan berhenti dan tidak berjalan selamanya?"
+            4. Berikan satu pertanyaan reflektif seperti "Jika seorang merancang fitur ....... namun gagal karene ......., apa yang perlu dipertanyakan?"
+
+            """
+        }
+    ]
+    
+}
+
+QUIZZES = {
+    'algoritma': {
+        'title': 'Quiz: Algoritma Pemrograman',
+        'questions': [
+            {
+                'text': 'Seorang koki mengikuti resep untuk membuat kue. Dalam konteks pemrograman, resep tersebut paling tepat dijelaskan sebagai...',
+                'options': [
+                    'Output, karena hasil akhirnya adalah sebuah kue yang jadi.',
+                    'Input, karena membutuhkan bahan-bahan sebagai masukan.',
+                    'Algoritma, karena berisi urutan langkah-langkah logis dan terbatas untuk menyelesaikan masalah.',
+                    'Program itu sendiri, karena bisa langsung dijalankan.',
+                    'Variabel, karena kue termasuk ke dalam variabel.'
+                ],
+                'correct': 'Algoritma, karena berisi urutan langkah-langkah logis dan terbatas untuk menyelesaikan masalah.'
+            },
+            {
+                'text': 'Operator `%` (modulus) digunakan untuk...',
+                'options': [
+                    'Membulatkan angka ke bawah.',
+                    'Mencari sisa dari suatu operasi pembagian.',
+                    'Melakukan pembagian dengan hasil desimal.',
+                    'Menghitung persentase.',
+                    'Melakukan pembagian dengan hasil bilangan bulat (tanpa sisa).'
+                ],
+                'correct': 'Mencari sisa dari suatu operasi pembagian.'
+            },
+            {
+                'text': 'Dari data-data siswa berikut, manakah yang paling ideal untuk disimpan menggunakan tipe data integer?',
+                'options': [
+                    'Nomor Induk Siswa (NIS) yang diawali dengan angka nol, contoh: "0012345"',
+                    'Jumlah saudara kandung, contoh: 2',
+                    'Rata-rata nilai rapor, contoh: 85.75',
+                    'Biaya SPP per bulan, contoh: "Rp 600.000"',
+                    'Nomor Telepon, contoh: "0812345678"'
+                ],
+                'correct': 'Jumlah saudara kandung, contoh: 2'
+            },
+            {
+                'text': 'Diberikan `x = 3 + 5 * 2`. Berapakah nilai `x`?',
+                'options': ['25', '10', '30', '13', '17'],
+                'correct': '13'
+            },
+            {
+                'text': 'Diberikan `sisa_baterai = 15`. Kode kemudian dieksekusi: `sisa_baterai = sisa_baterai - 5`. Berapa nilai `sisa_baterai` sekarang?',
+                'options': ['5', '20', '10', '15', '25'],
+                'correct': '10'
+            }
+        ]
+    },
+    'percabangan': {
+        'title': 'Quiz: Struktur Kontrol Percabangan',
+        'questions': [
+            {
+                'text': 'Struktur `if-else` digunakan untuk...',
+                'options': [
+                    'Mengulangi sebuah blok kode beberapa kali.',
+                    'Menyimpan beberapa nilai dalam satu variabel.',
+                    'Menjalankan sebuah blok kode jika kondisi benar, dan menjalankan blok kode alternatif jika kondisi salah.',
+                    'Menjalankan kode secara berurutan tanpa ada pilihan.',
+                    'Mendefinisikan sebuah fungsi yang bisa dipanggil berulang kali'
+                ],
+                'correct': 'Menjalankan sebuah blok kode jika kondisi benar, dan menjalankan blok kode alternatif jika kondisi salah.'
+            },
+            {
+                'text': 'Anda membuat sistem login. Kode Anda adalah `if username == "admin" or password == "1234"`. Menurutmu apa yang harus diperhatikan untuk keamanan dari logika ini?',
+                'options': [
+                    'Seharusnya ada blok `else`.',
+                    'Seharusnya menggunakan operator `and`.',
+                    'Password "1234" terlalu mudah ditebak.',
+                    'Tidak ada kelemahan, ini adalah logika yang aman.',
+                    'nama variabel username dan password kurang aman'
+                ],
+                'correct': 'Seharusnya menggunakan operator `and`.'
+            },
+            {
+                'text': "Logika Anda `if nilai >= 75:` sudah benar, tapi siswa dengan nilai `75.0` tetap gagal. Pertanyaan reflektif apa yang harus Anda ajukan di luar kode?",
+                'options': [
+                    "\"Apakah aku salah memahami aturannya? Mungkin syaratnya 'di atas 75', bukan 'minimal 75'.\"",
+                    "\"Apakah komputernya salah melakukan perbandingan?\"",
+                    "\"Kenapa standar kelulusannya begitu tinggi?\"",
+                    "\"Siapa yang memasukkan nilai ini?\"",
+                    "\"Apakah saya harus menurunkan standar kelulusannya?\""
+                ],
+                'correct': "\"Apakah aku salah memahami aturannya? Mungkin syaratnya 'di atas 75', bukan 'minimal 75'.\""
+            },
+            {
+                'text': 'Untuk memberikan diskon hanya kepada `Member` yang berbelanja di atas 500.000, manakah kode yang paling tepat?',
+                'options': [
+                    'if total_belanja > 500000:',
+                    'if status == "Member":',
+                    'if status == "Member" or total_belanja > 500000:',
+                    'if status == "Member" and total_belanja > 500000:',
+                    'if status == "Member": if total_belanja > 500000:'
+                ],
+                'correct': 'if status == "Member" and total_belanja > 500000:'
+            },
+            {
+                'text': "Anda ingin membuat program yang hanya berjalan jika pengguna adalah 'Admin' DAN usianya di atas 18. Manakah kondisi `if` yang paling tepat?",
+                'options': [
+                    'if status == "Admin" or usia > 18:',
+                    'if status == "Admin":',
+                    'if not (status == "Admin")',
+                    'if status == "Admin" and usia > 18:',
+                    'if usia > 18:'
+                ],
+                'correct': 'if status == "Admin" and usia > 18:'
+            }
+        ]
+    },
+    'perulangan': {
+        'title': 'Quiz: Struktur Kontrol Perulangan',
+        'questions': [
+            {
+                'text': 'Apa perbedaan mendasar antara perulangan `for` dan `while`?',
+                'options': [
+                    '`for` digunakan ketika jumlah perulangan diketahui secara pasti, sedangkan `while` digunakan ketika perulangan bergantung pada sebuah kondisi yang dinamis.',
+                    '`for` hanya untuk angka, `while` hanya untuk teks.',
+                    '`for` lebih cepat dari `while`.',
+                    '`for` selalu menghitung maju, `while` selalu menghitung mundur.',
+                    '`for` tidak bisa menjadi infinite loop, sedangkan `while` bisa.'
+                ],
+                'correct': '`for` digunakan ketika jumlah perulangan diketahui secara pasti, sedangkan `while` digunakan ketika perulangan bergantung pada sebuah kondisi yang dinamis.'
+            },
+            {
+                'text': 'Kode `while True: print("Loading...")` akan menyebabkan infinite loop. Mengapa hal tersebut terjadi?',
+                'options': [
+                    'Karena kondisi `True` secara definisi akan selalu benar dan tidak pernah berubah menjadi `False`.',
+                    'Karena teks "Loading..." terlalu panjang.',
+                    'Karena komputer tidak bisa mencetak teks berulang kali.',
+                    'Karena tidak ada variabel `i`.',
+                    'Karena perintah print() tidak bisa menghentikan perulangan.'
+                ],
+                'correct': 'Karena kondisi `True` secara definisi akan selalu benar dan tidak pernah berubah menjadi `False`.'
+            },
+            {
+                'text': 'Apa fungsi dari `i = i + 1` (atau `i += 1`) di dalam perulangan `while`?',
+                'options': [
+                    'Untuk mencetak nilai `i` ke layar.',
+                    "Sebagai 'increment', yaitu proses menaikkan nilai variabel kontrol agar kondisi perulangan suatu saat bisa menjadi `False` dan berhenti.",
+                    'Untuk mengatur ulang nilai `i` kembali ke 1.',
+                    'Untuk memeriksa apakah `i` adalah bilangan ganjil.',
+                    'Untuk menyimpan nilai i ke dalam memori permanen.'
+                ],
+                'correct': "Sebagai 'increment', yaitu proses menaikkan nilai variabel kontrol agar kondisi perulangan suatu saat bisa menjadi `False` dan berhenti."
+            },
+            {
+                'text': 'Dalam perulangan `for i in range(A, B):`, iterasi akan dimulai dari nilai... dan berhenti sebelum mencapai nilai...',
+                'options': [
+                    'A+1, B+1',
+                    'A, B',
+                    'A+1, B',
+                    'A, B+1',
+                    'A, B-1'
+                ],
+                'correct': 'A, B'
+            },
+            {
+                'text': 'Manakah di antara kode berikut yang akan mencetak semua bilangan ganjil antara 1 dan 10?',
+                'options': [
+                    'for i in range(1, 10, 2): print(i)',
+                    'for i in range(1, 10): print(i)',
+                    'for i in range(1, 10): if i % 2 == 0: print(i)',
+                    'i = 1, while i < 10: print(1)',
+                    'for i in range(10): if i % 2 != 0: print(i)'
+                ],
+                'correct': 'for i in range(1, 10, 2): print(i)'
+            }
+        ]
+    }
+}
+
+learning = Blueprint('learning', __name__, template_folder='templates', static_folder='static')
+
+@learning.route('/learning/<module_name>')
+def learning_module(module_name):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+
+    current_user = User.query.filter_by(username=session['username']).first()
+    if not current_user:
+        return redirect(url_for('auth.logout'))
+
+    # --- [VERIFIKASI AKSES BARU DITAMBAHKAN DI SINI] ---
+    module_order = list(curriculum.keys()) 
+
+    if module_name not in module_order:
+        flash("Materi tidak ditemukan.", "error")
+        return redirect(url_for('main.materi'))
+
+    if module_name != module_order[0]: # Jika bukan modul pertama
+        try:
+            current_module_index = module_order.index(module_name)
+            previous_module_name = module_order[current_module_index - 1]
+            
+            previous_progress = UserProgress.query.filter_by(
+                user_id=current_user.id,
+                module_name=previous_module_name,
+                is_completed=True
+            ).first()
+            
+            if not previous_progress:
+                flash(f"Anda harus menyelesaikan modul '{previous_module_name.capitalize()}' terlebih dahulu.", "error")
+                return redirect(url_for('main.materi'))
+        except (ValueError, IndexError):
+            flash("Terjadi kesalahan saat memuat materi.", "error")
+            return redirect(url_for('main.materi'))
+    # --- [AKHIR VERIFIKASI] ---
+
+    # Inisialisasi 'histories' jika belum ada
+    if 'histories' not in session:
+        session['histories'] = {}
+    if module_name not in session['histories']:
+        session['histories'][module_name] = {}
+
+    progress = UserProgress.query.filter_by(user_id=current_user.id, module_name=module_name).first()
+    max_step_for_this_module = progress.max_step_achieved if progress else 0
+
+    if session.get('module') != module_name or 'step' not in session:
+        session['module'] = module_name
+        session['step'] = max_step_for_this_module
+        
+    current_step_index = session.get('step', 0)
+    step_key = str(current_step_index)
+
+    if step_key not in session['histories'][module_name]:
+        step_data_for_opening = curriculum[module_name][current_step_index]
+        session['histories'][module_name][step_key] = [{'role': 'assistant', 'content': step_data_for_opening.get('opening_message', 'Mari kita mulai.')}]
+
+    chat_history = session['histories'][module_name].get(step_key, [])
+    current_step_data = curriculum[module_name][current_step_index]
+    
+    show_next_button_on_load = False
+    if current_step_data.get('is_concludable', False):
+        last_message = chat_history[-1]['content'] if chat_history else ''
+        if '[SELESAI]' in last_message:
+            show_next_button_on_load = True
+    
+    return render_template('learning.html', 
+                             chat_history=chat_history,
+                             show_next_button=show_next_button_on_load,
+                             step_data=current_step_data,
+                             curriculum=curriculum,
+                             module_name=module_name,
+                             max_step_achieved=max_step_for_this_module)
+@learning.route('/goto/<module_name>/<int:step_num>')
+def goto_step(module_name, step_num):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+    
+    # Cek otorisasi (apakah step sudah terbuka)
+    current_user = User.query.filter_by(username=session['username']).first()
+    progress = UserProgress.query.filter_by(user_id=current_user.id, module_name=module_name).first()
+    max_step = progress.max_step_achieved if progress else 0
+    if step_num > max_step:
+        flash("Anda belum bisa mengakses step tersebut.", "error")
+        return redirect(url_for('learning.learning_module', module_name=module_name))
+
+    # HANYA ubah step yang aktif
+    session['step'] = step_num
+    
+    # Arahkan kembali ke learning_module yang akan me-render halaman dengan benar
+    return redirect(url_for('learning.learning_module', module_name=module_name))
+
+@learning.route('/chat', methods=['POST'])
+def chat():
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    action = request.json.get('action', 'chat') 
+    module_name = session.get('module')
+    current_step = session.get('step', 0)
+    
+    if not module_name or module_name not in curriculum:
+        return jsonify({'error': 'Module not found'}), 404
+    
+    if action == 'next_step':
+        next_step_index = current_step + 1
+        if next_step_index < len(curriculum[module_name]):
+            session['step'] = next_step_index
+            
+            current_user = User.query.filter_by(username=session['username']).first()
+            if current_user:
+                # Cari progress user di modul ini
+                user_progress = UserProgress.query.filter_by(
+                    user_id=current_user.id,
+                    module_name=module_name
+                ).first()
+
+                # --- PERBAIKAN UTAMA DI SINI ---
+                # Jika belum ada progress sama sekali, buat baru sekarang
+                if not user_progress:
+                    user_progress = UserProgress(
+                        user_id=current_user.id,
+                        module_name=module_name,
+                        max_step_achieved=0 # Mulai dari 0
+                    )
+                    db.session.add(user_progress)
+
+                # SEKARANG baru aman untuk membandingkan dan update step
+                if next_step_index > user_progress.max_step_achieved:
+                    user_progress.max_step_achieved = next_step_index
+                
+                db.session.commit()
+            
+            return jsonify({'status': 'step_changed'})
+        else:
+            return jsonify({'status': 'end_of_module'})
+
+    if action == 'run_code':
+        modified_code = request.json['message']
+        sim_instruction = f"Anda adalah simulator kode Python. Berdasarkan kode berikut, berikan HANYA output programnya, tanpa penjelasan apapun:\n\n{modified_code}"
+        try:
+            messages = [{"role": "system", "content": sim_instruction}]
+            response = client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.0)
+            output_result = response.choices[0].message.content
+            return jsonify({'reply': output_result})
+        except Exception as e:
+            print(f"Error during code simulation: {e}")
+            return jsonify({'reply': 'Gagal mensimulasikan kode.'})
+    
+    user_input = request.json['message']
+    
+    # Selalu gunakan string untuk kunci dictionary session
+    step_key = str(current_step)
+
+    current_user = User.query.filter_by(username=session['username']).first()
+    if current_user:
+        log_user = ConversationLog(
+            user_id=current_user.id,
+            module_name=module_name,
+            step_index=current_step,
+            role='user',
+            content=user_input
+        )
+        db.session.add(log_user)
+        db.session.commit()
+    
+    step_data = curriculum[module_name][current_step]
+    
+    # Ambil history dari session menggunakan kunci string
+    history = session['histories'][module_name].get(step_key, [])
+    
+    from prompts import SYSTEM_PROMPT
+    task_instruction = step_data.get('instruction', '')
+
+    formatted_system_prompt = SYSTEM_PROMPT.format(task_instruction=task_instruction)
+    messages_for_api = [{"role": "system", "content": formatted_system_prompt}] + history
+    messages_for_api.append({"role": "user", "content": user_input})
+    
+    try:
+        response = client.chat.completions.create(model="gpt-4o", messages=messages_for_api, temperature=0.7)
+        ai_response = response.choices[0].message.content
+
+        if current_user:
+            log_assistant = ConversationLog(
+                user_id=current_user.id,
+                module_name=module_name,
+                step_index=current_step,
+                role='assistant',
+                content=ai_response
+            )
+            db.session.add(log_assistant)
+            db.session.commit()
+
+        show_next_button = False
+        next_action_url = None
+        ai_reply_cleaned = ai_response # Buat variabel baru untuk balasan yang sudah bersih
+
+        if step_data.get('is_concludable', False) and '[SELESAI]' in ai_response:
+            show_next_button = True
+            ai_reply_cleaned = ai_response.replace('[SELESAI]', '').strip()
+            
+            last_step_index = len(curriculum[module_name]) - 1
+            if current_step == last_step_index:
+                next_action_url = url_for('learning.quiz', module_name=module_name)
+        
+        # Tambahkan percakapan baru ke history
+        history.append({"role": "user", "content": user_input})
+        history.append({"role": "assistant", "content": ai_response}) # Simpan respons mentah ke history
+        
+        # Simpan kembali history ke session menggunakan kunci string
+        session['histories'][module_name][step_key] = history
+        session.modified = True
+        
+        return jsonify({
+            'reply': ai_reply_cleaned, 
+            'show_next_button': show_next_button,
+            'next_action_url': next_action_url
+        })
+    
+    except Exception as e:
+        print(f"Error calling API: {e}")
+        return jsonify({'error': 'Failed to get response from AI'}), 500
+
+@learning.route('/overview/<module_name>')
+def module_overview(module_name):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user = User.query.filter_by(username=session['username']).first()
+    if not user:
+        return redirect(url_for('auth.logout'))
+
+    # --- VERIFIKASI AKSES MATERI DIMULAI DI SINI ---
+    
+    # 1. Tentukan urutan modul
+    module_order = list(curriculum.keys()) # Hasil: ['algoritma', 'percabangan', 'perulangan']
+
+    # 2. Cek apakah modul yang diminta ada
+    if module_name not in module_order:
+        flash("Materi tidak ditemukan.", "error")
+        return redirect(url_for('main.materi'))
+
+    # 3. Jika modul BUKAN yang pertama (bukan algoritma), lakukan pengecekan
+    if module_name != module_order[0]:
+        try:
+            # Cari tahu apa nama modul sebelumnya
+            current_module_index = module_order.index(module_name)
+            previous_module_name = module_order[current_module_index - 1]
+
+            # 4. Cek ke database apakah modul SEBELUMNYA sudah selesai
+            previous_progress = UserProgress.query.filter_by(
+                user_id=user.id,
+                module_name=previous_module_name,
+                is_completed=True
+            ).first()
+
+            # 5. Jika modul sebelumnya TIDAK ditemukan / TIDAK selesai, blokir akses
+            if not previous_progress:
+                flash(f"Anda harus menyelesaikan modul '{previous_module_name.capitalize()}' terlebih dahulu.", "error")
+                return redirect(url_for('main.materi'))
+
+        except (ValueError, IndexError):
+            # Jika ada error (misal: nama modul salah), kembalikan ke materi
+            flash("Terjadi kesalahan saat memuat materi.", "error")
+            return redirect(url_for('main.materi'))
+            
+    # --- AKHIR VERIFIKASI ---
+    
+    # 6. Jika semua pengecekan lolos, tampilkan halaman overview
+    module_data = curriculum.get(module_name)
+    return render_template('module_overview.html', module_name=module_name, module_data=module_data)
+
+@learning.route('/quiz/<module_name>')
+def quiz(module_name):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user = User.query.filter_by(username=session['username']).first()
+    if not user:
+        return redirect(url_for('auth.logout'))
+
+    
+    progress = UserProgress.query.filter_by(user_id=user.id, module_name=module_name).first()
+    
+    last_step_index = len(curriculum[module_name]) - 1
+
+    if not progress or progress.max_step_achieved < last_step_index:
+        flash("Anda harus menyelesaikan semua materi pembelajaran terlebih dahulu untuk mengakses kuis.", "error")
+        return redirect(url_for('learning.learning_module', module_name=module_name))
+
+
+    existing_attempt = QuizAttempt.query.filter_by(
+        user_id=user.id,
+        module_name=module_name
+    ).first()
+
+    if existing_attempt:
+        page_title = f"Skor Kuis: {module_name.capitalize()}"
+        return render_template('quiz.html', 
+                                 module_name=module_name, 
+                                 attempt_history=existing_attempt,
+                                 quiz_taken=True,
+                                 page_title=page_title)
+
+    quiz_data = QUIZZES.get(module_name)
+    if not quiz_data:
+        flash(f'Quiz untuk materi "{module_name}" belum tersedia.', 'error')
+        return redirect(url_for('main.materi'))
+
+    page_title = quiz_data['title']
+    correct_answers = [q['correct'] for q in quiz_data['questions']]
+    
+    return render_template('quiz.html', 
+                             quiz_data=quiz_data, 
+                             module_name=module_name, 
+                             correct_answers=correct_answers,
+                             quiz_taken=False,
+                             page_title=page_title)
+
+@learning.route('/save_quiz_attempt', methods=['POST'])
+def save_quiz_attempt():
+    if 'username' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    
+    data = request.json
+    user = User.query.filter_by(username=session['username']).first()
+    
+    if user:
+        # --- MULAI DEBUG ---
+        print("\n--- [DEBUG] MENYIMPAN SKOR KUIS ---")
+        score = int(data['score'])
+        module_name = data['module_name']
+        print(f"User: {user.username}, Modul: {module_name}, Skor: {score}")
+
+        # 1. Buat record QuizAttempt baru
+        new_attempt = QuizAttempt(
+            user_id=user.id,
+            module_name=data['module_name'],
+            score=data['score']
+        )
+        db.session.add(new_attempt)
+        db.session.flush() # Perlu flush untuk mendapatkan ID dari attempt baru
+
+        # 2. Loop melalui setiap jawaban dan simpan
+        for answer_data in data['answers']:
+            new_answer = QuizAnswer(
+                attempt_id=new_attempt.id,
+                question_text=answer_data['question_text'],
+                selected_answer=answer_data['selected_answer'],
+                correct_answer=answer_data['correct_answer'],
+                is_correct=answer_data['is_correct']
+            )
+            db.session.add(new_answer)
+        
+        # 3. Logika Unlock Materi
+        if score >= 60:
+            print("[DEBUG] Skor memenuhi syarat (>= 60). Mencoba update UserProgress...")
+            progress = UserProgress.query.filter_by(user_id=user.id, module_name=module_name).first()
+            
+            if not progress:
+                print(f"[DEBUG] UserProgress untuk modul '{module_name}' tidak ditemukan. Membuat baru...")
+                progress = UserProgress(user_id=user.id, module_name=module_name)
+                db.session.add(progress)
+            
+            progress.is_completed = True
+            print(f"[DEBUG] UserProgress.is_completed untuk '{module_name}' diatur menjadi True.")
+        else:
+            print(f"[DEBUG] Skor TIDAK memenuhi syarat. Tidak ada modul yang di-unlock.")
+        # --- AKHIR DEBUG ---
+
+        db.session.commit()
+        print("[DEBUG] db.session.commit() telah dieksekusi.")
+        print("--- [DEBUG] SELESAI ---\n")
+        return jsonify({'status': 'success'})
+    
+    return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+    
+@learning.route('/quiz/review/<int:attempt_id>')
+def quiz_review(attempt_id):
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+
+    user = User.query.filter_by(username=session['username']).first()
+
+    # 1. Cari attempt kuis berdasarkan ID DAN pastikan itu milik user yang login
+    attempt = QuizAttempt.query.filter_by(id=attempt_id, user_id=user.id).first_or_404()
+
+    # 2. Kirim objek 'attempt' (yang sudah berisi semua jawabannya) ke template
+    return render_template('quiz_review.html', attempt=attempt)
+    
+@learning.route('/dev-jump/<module_name>/<int:step_num>')
+def dev_jump(module_name, step_num):
+    # Fungsi ini hanya boleh berjalan dalam mode debug
+    if not current_app.debug:
+        return "Shortcut is disabled in production mode.", 404
+    
+    # Pastikan user sudah login
+    if 'username' not in session:
+        return redirect(url_for('auth.login'))
+
+    # Logika yang benar: HANYA ubah step dan modul di session
+    # JANGAN ubah session['username']
+    session['module'] = module_name
+    session['step'] = step_num
+    session['stage_index'] = 0
+
+    # Reset history chat agar sesuai dengan step yang dituju
+    target_step_data = curriculum[module_name][step_num]
+    initial_message = target_step_data.get('opening_message', f'Memulai di step {step_num}.')
+    session['history'] = [{'role': 'assistant', 'content': initial_message}]
+
+    return redirect(url_for('learning.learning_module', module_name=module_name))
+
+@learning.route('/clear_step_history', methods=['POST'])
+def clear_step_history():
+    if 'username' not in session:
+        return jsonify({'status': 'error'}), 401
+    
+    data = request.json
+    module_name = data.get('module_name')
+    # JANGAN ubah ke integer, biarkan sebagai string
+    step_index = str(data.get('step_index'))
+
+    if module_name and step_index in session.get('histories', {}).get(module_name, {}):
+        del session['histories'][module_name][step_index]
+        session.modified = True
+
+    return jsonify({'status': 'success'})

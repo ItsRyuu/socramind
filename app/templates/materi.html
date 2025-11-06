@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pilih Materi - SocraMind</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="main-page">
+    <div class="main-container">
+        <header class="main-header">
+            <h1>Selamat datang, {{ current_user_name | capitalize }}!</h1>
+            <nav>
+                <a href="{{ url_for('main.index') }}" class="header-button">🏠 Halaman Utama</a>
+                <a href="{{ url_for('main.pencapaian') }}" class="header-button">Pencapaian Saya</a>
+                {% if current_user_name %}
+                    <span class="user-display">
+                        👤 {{ current_user_name | capitalize }}
+                    </span>
+                {% endif %}
+                <a href="{{ url_for('auth.logout') }}" class="header-button logout">Logout</a>
+            </nav>
+        </header>
+        
+        <h2>Pilih Materi Pembelajaran</h2>
+        {% if completed_modules|length == 3 %} {# Ganti 3 dengan total modul Anda #}
+            <div class="sertifikat-link-container">
+                <p>🎉 Selamat! Anda telah menyelesaikan semua materi.</p>
+                <a href="{{ url_for('main.sertifikat') }}" class="button-start">Lihat Sertifikat Anda</a>
+            </div>
+        {% endif %}
+
+        <div class="materi-grid">
+            
+            <a href="{{ url_for('learning.module_overview', module_name='algoritma') }}" class="materi-card">
+                <h3>Konsep Algoritma Pemrograman</h3>
+                <p>Pelajari konsep dasar dan logika dalam membangun sebuah program.</p>
+                <span>Mulai Belajar →</span>
+            </a>
+
+            {% if 'algoritma' in completed_modules %}
+                <a href="{{ url_for('learning.module_overview', module_name='percabangan') }}" class="materi-card">
+                    <h3>Struktur Kontrol Percabangan</h3>
+                    <p>Pahami cara program membuat keputusan dengan logika if-else.</p>
+                    <span>Mulai Belajar →</span>
+                </a>
+            {% else %}
+                <div class="materi-card disabled">
+                    <h3>Struktur Kontrol Percabangan</h3>
+                    <p>Selesaikan modul "Algoritma Pemrograman" untuk membuka.</p>
+                    <span>🔒 Terkunci</span>
+                </div>
+            {% endif %}
+
+            {% if 'percabangan' in completed_modules %}
+                <a href="{{ url_for('learning.module_overview', module_name='perulangan') }}" class="materi-card">
+                    <h3>Struktur Kontrol Perulangan</h3>
+                    <p>Pelajari cara mengeksekusi kode berulang kali dengan loop for dan while.</p>
+                    <span>Mulai Belajar →</span>
+                </a>
+            {% else %}
+                <div class="materi-card disabled">
+                    <h3>Struktur Kontrol Perulangan</h3>
+                    <p>Selesaikan modul "Struktur Kontrol Percabangan" untuk membuka.</p>
+                    <span>🔒 Terkunci</span>
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+</body>
+</html>
