@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash
 from functools import wraps
 from app.models.models import db, User, UserProgress, ConversationLog, QuizAttempt
-from app import curriculum
+from ..learning.routes import curriculum 
 
 admin = Blueprint('admin', __name__, template_folder='templates')
 
