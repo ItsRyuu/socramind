@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="main-page">
+<div class="main-container">
+    <h1>Admin Dashboard</h1>
+    <p><a href="{{ url_for('main.materi') }}">Kembali ke Halaman Materi</a></p>
+
+    <h3>Daftar Pengguna</h3>
+    <table class="pencapaian-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Status Admin</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ 'Ya' if user.is_admin else 'Tidak' }}</td>
+                <td><a href="{{ url_for('admin.user_detail', user_id=user.id) }}">Lihat Detail</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

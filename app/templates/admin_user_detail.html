@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Detail User: {{ user.username }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="main-page">
+<div class="main-container">
+    <h1>Detail untuk: {{ user.username }}</h1>
+    <p><a href="{{ url_for('admin.dashboard') }}">Kembali ke Dashboard</a></p>
+
+    <h3>Progres Materi</h3>
+    <ul class="overview-syllabus">
+        {% for p in progress %}
+        <li>{{ p.module_name }}: (Step Terjauh: {{ p.max_step_achieved }}) - Selesai: <strong>{{ 'Ya' if p.is_completed else 'Belum' }}</strong></li>
+        {% endfor %}
+    </ul>
+
+    <h3>Riwayat Skor Kuis</h3>
+    <table class="pencapaian-table">
+        <thead>
+            <tr>
+                <th>Materi</th>
+                <th>Skor</th>
+                <th>Waktu</th>
+                <th>Review</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for quiz in quizzes %}
+            <tr>
+                <td>{{ quiz.module_name | capitalize }}</td>
+                <td>{{ quiz.score }}</td>
+                <td>{{ quiz.timestamp.strftime('%d-%m-%Y %H:%M') }}</td>
+                <td><a href="{{ url_for('learning.quiz_review', attempt_id=quiz.id) }}">Lihat Jawaban</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Log Percakapan (50 Terbaru)</h3>
+    <div id="chat-box" style="height: 500px; border: 1px solid #ddd; background: #fff; padding: 10px;">
+        {% for log in logs[:50] %}
+        <div class="message {{ 'user-message' if log.role == 'user' else 'assistant-message' }}">
+            <p><strong>{{ log.role | capitalize }} ({{ log.module_name }}, Step {{ log.step_index }})</strong></p>
+            <p>{{ log.content | safe }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</body>
+</html>

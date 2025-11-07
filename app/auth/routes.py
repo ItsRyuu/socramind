@@ -34,9 +34,10 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             session['username'] = user.username
+            session['is_admin'] = user.is_admin
             return redirect(url_for('main.materi'))
             
-        # Ganti di sini: tambahkan kategori 'error'
+        
         flash("Username atau password salah!", 'error')
         return redirect(url_for('auth.login'))
         
@@ -44,6 +45,6 @@ def login():
 
 @auth.route('/logout')
 def logout():
-    session.clear()  # Menghapus SEMUA data dari session
+    session.clear() 
     flash('Anda telah berhasil logout.', 'success') # Tambahan: Beri pesan konfirmasi
     return redirect(url_for('auth.login'))

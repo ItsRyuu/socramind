@@ -45,6 +45,9 @@ def create_app():
     from .learning.routes import learning as learning_blueprint
     app.register_blueprint(learning_blueprint)
 
+    from .admin.routes import admin as admin_blueprint
+    app.register_blueprint(admin_blueprint, url_prefix='/admin')
+    
     @app.context_processor
     def inject_user():
         """Menyuntikkan data user ke semua template."""
