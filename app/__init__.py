@@ -9,10 +9,8 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci-rahasia-default-untuk-lokal')
-
-    # --- GANTI BAGIAN KONFIGURASI DATABASE ANDA DENGAN INI ---
-    # Cek apakah variabel dari Railway ada (tanda sedang berjalan di server)
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci-rahasia-lokal-anda')
+    
     if os.getenv('MYSQLHOST'):
         # Gunakan variabel koneksi dari Railway
         DB_USER = os.getenv("MYSQLUSER")
