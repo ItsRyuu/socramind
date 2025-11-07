@@ -27,10 +27,8 @@ class UserProgress(db.Model):
     def __repr__(self):
         return f'<Progress User {self.user_id} in {self.module_name}>'
 
-# app/models/models.py
-
 class ConversationLog(db.Model):
-    id = db.Column(db.Integer, primary_key=True) # <-- Pastikan ada 'primary_key=True' di sini
+    id = db.Column(db.Integer, primary_key=True) 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     module_name = db.Column(db.String(100), nullable=False)
     step_index = db.Column(db.Integer, nullable=False)
