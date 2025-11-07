@@ -9,7 +9,7 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci-rahasia-lokal-anda')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'kunci-rahasia-lokal-anda')    
     
     if os.getenv('MYSQLHOST'):
         # Gunakan variabel koneksi dari Railway
