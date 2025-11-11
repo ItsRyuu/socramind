@@ -5,16 +5,14 @@ body {
     font-family: 'Poppins', sans-serif;
     background-color: #f4f7f6;
     margin: 0;
-    padding: 0; /* --- PERUBAIKAN: Hapus padding 20px dari body --- */
+    padding: 0; 
     color: #333;
 }
-/* --- TAMBAHAN: Body class khusus untuk landing page --- */
 .landing-page-body {
     padding-top: 70px; /* Beri ruang untuk header fixed */
     background-color: #fff;
 }
 
-/* --- TAMBAHAN: Body class khusus untuk halaman lain --- */
 .main-page, .auth-page {
     display: flex;
     flex-direction: column;
@@ -677,6 +675,7 @@ h1, h2, h3, h4 {
 /* Styling untuk Konten Materi */
 .materi-content {
     line-height: 1.6;
+    user-select: none;
 }
 
 .video-responsive {
