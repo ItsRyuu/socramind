@@ -4,7 +4,7 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-# --- [MODEL DATABASE] ---
+# MODEL DATABASE
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -41,15 +41,6 @@ class ConversationLog(db.Model):
     def __repr__(self):
         return f'<Log {self.id} by {self.role}>'
 
-# class QuizResult(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     score = db.Column(db.Integer, nullable=False)
-#     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-#     module_name = db.Column(db.String(100), nullable=False)
-#     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-#     def __repr__(self):
-#         return f'<QuizResult {self.id} by User {self.user_id}>'
 
 class QuizAttempt(db.Model):
     """Mencatat setiap kali seorang user menyelesaikan kuis."""
