@@ -9,7 +9,7 @@ body {
     color: #333;
 }
 .landing-page-body {
-    padding-top: 70px; /* Beri ruang untuk header fixed */
+    padding-top: 10px; /* Beri ruang untuk header fixed */
     background-color: #fff;
 }
 
