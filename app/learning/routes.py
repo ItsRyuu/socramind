@@ -512,48 +512,51 @@ QUIZZES = {
         'title': 'Quiz: Algoritma Pemrograman',
         'questions': [
             {
-                'text': 'Seorang koki mengikuti resep untuk membuat kue. Dalam konteks pemrograman, resep tersebut paling tepat dijelaskan sebagai...',
+                'text': 'Anton dan Citra sedang merancang fitur login untuk aplikasi baru. Anton menulis rancangan logikanya (pseudocode) di papan tulis. Citra: "Mengapa kita melakukan ini? Bukankah lebih cepat langsung coding saja?" Anton: "Ini adalah pseudocode. Kita pakai ini agar tim bisa fokus pada alur pemecahan masalahnya dulu." Citra: "Tapi kan saat coding kita juga fokus pada alur?" Manakah kalimat lanjutan yang paling kuat dan persuasif untuk melengkapi argumen Anton dan meyakinkan Citra?',
                 'options': [
-                    'Output, karena hasil akhirnya adalah sebuah kue yang jadi.',
-                    'Input, karena membutuhkan bahan-bahan sebagai masukan.',
+                    'Benar, tapi dengan pseudocode, kita tidak terikat oleh aturan sintaks. Kita bisa fokus murni pada apakah logikanya sudah benar? sebelum pusing dengan titik koma atau error bahasa pemrograman.',
+                    'Karena pseudocode ini nanti akan kita gunakan sebagai dokumentasi teknis yang wajib ada setelah programnya jadi.',
                     'Algoritma, karena berisi urutan langkah-langkah logis dan terbatas untuk menyelesaikan masalah.',
-                    'Program itu sendiri, karena bisa langsung dijalankan.',
-                    'Variabel, karena kue termasuk ke dalam variabel.'
+                    'Tidak juga, karena pseudocode ini bisa secara otomatis mendeteksi bug sintaks yang akan muncul di kode Python nanti.',
+                    'Sebab, jika kita langsung coding dan ternyata logikanya salah di tengah jalan, biayanya lebih mahal karena kita harus membongkar kode yang sudah terlanjur jadi.'
                 ],
-                'correct': 'Algoritma, karena berisi urutan langkah-langkah logis dan terbatas untuk menyelesaikan masalah.'
+                'correct': 'Benar, tapi dengan pseudocode, kita tidak terikat oleh aturan sintaks. Kita bisa fokus murni pada apakah logikanya sudah benar? sebelum pusing dengan titik koma atau error bahasa pemrograman.'
             },
             {
-                'text': 'Operator `%` (modulus) digunakan untuk...',
+                'text': 'Ditemukan sebuah program untuk menghitung diskon. Ketika program dijalankan, output yang muncul tidak sesuai harapan, Ternyata, ditemukan baris `if harga > 100000 and harga < 100000:`. Apa masalah utama pada kode ini?',
                 'options': [
-                    'Membulatkan angka ke bawah.',
-                    'Mencari sisa dari suatu operasi pembagian.',
-                    'Melakukan pembagian dengan hasil desimal.',
-                    'Menghitung persentase.',
-                    'Melakukan pembagian dengan hasil bilangan bulat (tanpa sisa).'
+                    'Seharusnya ada tanda `=` pada salah satu perbandingan.',
+                    'Seharusnya menggunakan operator `or`.',
+                    'Kondisi tersebut secara logika tidak akan pernah bisa bernilai `True`.',
+                    'Variabel `harga` tidak boleh digunakan dua kali.',
+                    'Operator and hanya bisa digunakan untuk membandingkan dua variabel yang berbeda.'
                 ],
-                'correct': 'Mencari sisa dari suatu operasi pembagian.'
+                'correct': 'Kondisi tersebut secara logika tidak akan pernah bisa bernilai `True`.'
             },
             {
-                'text': 'Dari data-data siswa berikut, manakah yang paling ideal untuk disimpan menggunakan tipe data integer?',
+                'text': 'Jika kode `salam = "Selamat Pagi"` diubah menjadi `salam = "Selamat Malam"`, apa dampaknya pada baris kode `print(salam)` yang dieksekusi setelahnya?',
                 'options': [
-                    'Nomor Induk Siswa (NIS) yang diawali dengan angka nol, contoh: "0012345"',
-                    'Jumlah saudara kandung, contoh: 2',
-                    'Rata-rata nilai rapor, contoh: 85.75',
-                    'Biaya SPP per bulan, contoh: "Rp 600.000"',
-                    'Nomor Telepon, contoh: "0812345678"'
+                    'Tidak ada dampak, output tetap "Selamat Pagi".',
+                    'Output akan berubah menjadi "Selamat Malam".',
+                    'Output menjadi “Selamat Pagi Selamat Malam”.',
+                    'Output akan menampilkan keduanya.',
+                    'program akan error karena variabel salam didefinisikan ullang.'
                 ],
-                'correct': 'Jumlah saudara kandung, contoh: 2'
+                'correct': 'Output akan berubah menjadi "Selamat Malam".'
             },
             {
-                'text': 'Diberikan `x = 3 + 5 * 2`. Berapakah nilai `x`?',
-                'options': ['25', '10', '30', '13', '17'],
-                'correct': '13'
+                'text': 'Budi dan Sinta sedang membuat program untuk menyimpan data kontak. Mereka berdebat tentang cara terbaik menyimpan nomor telepon. Budi: "Kita harus pakai tipe data integer. Jelas-jelas nomor telepon adalah angka, dan integer jauh lebih efisien dalam penggunaan memori." Sinta: "Saya rasa tidak. Kita harus pakai string. Menggunakan integer berisiko menyebabkan bug (kesalahan) pada data."Manakah penilaian yang paling tepat mengenai situasi ini?',
+                'options': [
+                    'Argumen Budi kuat. Efisiensi memori adalah prioritas utama, dan karena nomor telepon adalah angka, integer adalah pilihan yang paling logis dan benar. ',
+                    'Argumen Sinta kuat. Menggunakan integer akan gagal menangani data krusial seperti angka "0" di awalan (cth: "0812") atau karakter "+" (cth: "+62"), sehingga string adalah satu-satunya pilihan yang valid.',
+                    'Kedua argumen lemah. Pilihan terbaik adalah float, karena float adalah tipe data angka yang bisa menangani karakter khusus',
+                    'Argumen Budi kuat. Integer benar, dan jika ada karakter "+" atau "0" di depan, program bisa diakali dengan menambahkannya sebagai teks terpisah saat pencetakan.',
+                    'Kedua argumen lemah. Tipe data tidak penting. Yang penting adalah nama variabelnya jelas, seperti Nomor_Telepon.'
+                ],
+                'correct':'Argumen Sinta kuat. Menggunakan integer akan gagal menangani data krusial seperti angka "0" di awalan (cth: "0812") atau karakter "+" (cth: "+62"), sehingga string adalah satu-satunya pilihan yang valid.'
+
             },
-            {
-                'text': 'Diberikan `sisa_baterai = 15`. Kode kemudian dieksekusi: `sisa_baterai = sisa_baterai - 5`. Berapa nilai `sisa_baterai` sekarang?',
-                'options': ['5', '20', '10', '15', '25'],
-                'correct': '10'
-            }
+            
         ]
     },
     'percabangan': {
