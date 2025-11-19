@@ -513,6 +513,7 @@ QUIZZES = {
         'questions': [
             {
                 'text': 'Anton dan Citra sedang merancang fitur login untuk aplikasi baru. Anton menulis rancangan logikanya (pseudocode) di papan tulis. Citra: "Mengapa kita melakukan ini? Bukankah lebih cepat langsung coding saja?" Anton: "Ini adalah pseudocode. Kita pakai ini agar tim bisa fokus pada alur pemecahan masalahnya dulu." Citra: "Tapi kan saat coding kita juga fokus pada alur?" Manakah kalimat lanjutan yang paling kuat dan persuasif untuk melengkapi argumen Anton dan meyakinkan Citra?',
+                'image': None,
                 'options': [
                     'Benar, tapi dengan pseudocode, kita tidak terikat oleh aturan sintaks. Kita bisa fokus murni pada apakah logikanya sudah benar? sebelum pusing dengan titik koma atau error bahasa pemrograman.',
                     'Karena pseudocode ini nanti akan kita gunakan sebagai dokumentasi teknis yang wajib ada setelah programnya jadi.',
@@ -524,6 +525,7 @@ QUIZZES = {
             },
             {
                 'text': 'Ditemukan sebuah program untuk menghitung diskon. Ketika program dijalankan, output yang muncul tidak sesuai harapan, Ternyata, ditemukan baris `if harga > 100000 and harga < 100000:`. Apa masalah utama pada kode ini?',
+                'image': None,
                 'options': [
                     'Seharusnya ada tanda `=` pada salah satu perbandingan.',
                     'Seharusnya menggunakan operator `or`.',
@@ -535,6 +537,7 @@ QUIZZES = {
             },
             {
                 'text': 'Jika kode `salam = "Selamat Pagi"` diubah menjadi `salam = "Selamat Malam"`, apa dampaknya pada baris kode `print(salam)` yang dieksekusi setelahnya?',
+                'image': None,
                 'options': [
                     'Tidak ada dampak, output tetap "Selamat Pagi".',
                     'Output akan berubah menjadi "Selamat Malam".',
@@ -546,6 +549,7 @@ QUIZZES = {
             },
             {
                 'text': 'Budi dan Sinta sedang membuat program untuk menyimpan data kontak. Mereka berdebat tentang cara terbaik menyimpan nomor telepon. Budi: "Kita harus pakai tipe data integer. Jelas-jelas nomor telepon adalah angka, dan integer jauh lebih efisien dalam penggunaan memori." Sinta: "Saya rasa tidak. Kita harus pakai string. Menggunakan integer berisiko menyebabkan bug (kesalahan) pada data."Manakah penilaian yang paling tepat mengenai situasi ini?',
+                'image': None,
                 'options': [
                     'Argumen Budi kuat. Efisiensi memori adalah prioritas utama, dan karena nomor telepon adalah angka, integer adalah pilihan yang paling logis dan benar. ',
                     'Argumen Sinta kuat. Menggunakan integer akan gagal menangani data krusial seperti angka "0" di awalan (cth: "0812") atau karakter "+" (cth: "+62"), sehingga string adalah satu-satunya pilihan yang valid.',
@@ -563,59 +567,40 @@ QUIZZES = {
         'title': 'Quiz: Struktur Kontrol Percabangan',
         'questions': [
             {
-                'text': 'Struktur `if-else` digunakan untuk...',
+                'text': 'Perhatikan kode berikut. Apa outputnya?',
+                'image': 'quizcabang1.png',
                 'options': [
-                    'Mengulangi sebuah blok kode beberapa kali.',
-                    'Menyimpan beberapa nilai dalam satu variabel.',
-                    'Menjalankan sebuah blok kode jika kondisi benar, dan menjalankan blok kode alternatif jika kondisi salah.',
-                    'Menjalankan kode secara berurutan tanpa ada pilihan.',
-                    'Mendefinisikan sebuah fungsi yang bisa dipanggil berulang kali'
+                    'Tidak ada output',
+                    'Panas',
+                    'Panas Lembap',
+                    'Lembap',
+                    '30 80'
                 ],
-                'correct': 'Menjalankan sebuah blok kode jika kondisi benar, dan menjalankan blok kode alternatif jika kondisi salah.'
+                'correct': 'Panas Lembap'
             },
             {
-                'text': 'Anda membuat sistem login. Kode Anda adalah `if username == "admin" or password == "1234"`. Menurutmu apa yang harus diperhatikan untuk keamanan dari logika ini?',
+                'text': 'Seorang programmer ingin memberikan bonus kepada staf dengan masa kerja minimal 3 tahun. Dia menulis kode di bawah ini. Saat diuji, program salah memprediksi keluaran. Ketika input masa_kerja = 3, program malah mengeluarkan "Tidak Dapat", padahal seharusnya "Dapat". Manakah solusi yang paling benar dan logis untuk memperbaiki bug tersebut?',
+                'image': 'quizcabang2.png',
                 'options': [
-                    'Seharusnya ada blok `else`.',
-                    'Seharusnya menggunakan operator `and`.',
-                    'Password "1234" terlalu mudah ditebak.',
-                    'Tidak ada kelemahan, ini adalah logika yang aman.',
-                    'nama variabel username dan password kurang aman'
+                    'Ubah if masa_kerja > 3: menjadi if masa_kerja > 2:',
+                    'Tukar saja outputnya menjadi if masa_kerja > 3: bonus = "Tidak Dapat" dan else: bonus = "Dapat".',
+                    'Ubah if masa_kerja > 3: menjadi if masa_kerja == 3:',
+                    'Ubah if masa_kerja > 3: menjadi if masa_kerja >= 3:',
+                    'Ubah nilai masa_kerja = 3 menjadi masa_kerja = 4.'
                 ],
-                'correct': 'Seharusnya menggunakan operator `and`.'
+                'correct': 'Ubah if masa_kerja > 3: menjadi if masa_kerja >= 3:'
             },
             {
-                'text': "Logika Anda `if nilai >= 75:` sudah benar, tapi siswa dengan nilai `75.0` tetap gagal. Pertanyaan reflektif apa yang harus Anda ajukan di luar kode?",
+                'text': 'Apa ouput yang akan muncul jika diketahui ‘kecepatan = 90’?',
+                'image': 'quizcabang3.png',
                 'options': [
-                    "\"Apakah aku salah memahami aturannya? Mungkin syaratnya 'di atas 75', bukan 'minimal 75'.\"",
-                    "\"Apakah komputernya salah melakukan perbandingan?\"",
-                    "\"Kenapa standar kelulusannya begitu tinggi?\"",
-                    "\"Siapa yang memasukkan nilai ini?\"",
-                    "\"Apakah saya harus menurunkan standar kelulusannya?\""
+                    'Sangat Cepat',
+                    'Cepat',
+                    'Normal',
+                    'Cepat Normal',
+                    'Lambat'
                 ],
-                'correct': "\"Apakah aku salah memahami aturannya? Mungkin syaratnya 'di atas 75', bukan 'minimal 75'.\""
-            },
-            {
-                'text': 'Untuk memberikan diskon hanya kepada `Member` yang berbelanja di atas 500.000, manakah kode yang paling tepat?',
-                'options': [
-                    'if total_belanja > 500000:',
-                    'if status == "Member":',
-                    'if status == "Member" or total_belanja > 500000:',
-                    'if status == "Member" and total_belanja > 500000:',
-                    'if status == "Member": if total_belanja > 500000:'
-                ],
-                'correct': 'if status == "Member" and total_belanja > 500000:'
-            },
-            {
-                'text': "Anda ingin membuat program yang hanya berjalan jika pengguna adalah 'Admin' DAN usianya di atas 18. Manakah kondisi `if` yang paling tepat?",
-                'options': [
-                    'if status == "Admin" or usia > 18:',
-                    'if status == "Admin":',
-                    'if not (status == "Admin")',
-                    'if status == "Admin" and usia > 18:',
-                    'if usia > 18:'
-                ],
-                'correct': 'if status == "Admin" and usia > 18:'
+                'correct': 'Cepat'
             }
         ]
     },
@@ -623,59 +608,40 @@ QUIZZES = {
         'title': 'Quiz: Struktur Kontrol Perulangan',
         'questions': [
             {
-                'text': 'Apa perbedaan mendasar antara perulangan `for` dan `while`?',
+                'text': 'Apa output dari kode berikut?',
+                'image': 'quizulang1',
                 'options': [
-                    '`for` digunakan ketika jumlah perulangan diketahui secara pasti, sedangkan `while` digunakan ketika perulangan bergantung pada sebuah kondisi yang dinamis.',
-                    '`for` hanya untuk angka, `while` hanya untuk teks.',
-                    '`for` lebih cepat dari `while`.',
-                    '`for` selalu menghitung maju, `while` selalu menghitung mundur.',
-                    '`for` tidak bisa menjadi infinite loop, sedangkan `while` bisa.'
+                    '0 1 2 3 4',
+                    '0 1',
+                    '2',
+                    '0 1 3 4',
+                    '2 2 2 2'
                 ],
-                'correct': '`for` digunakan ketika jumlah perulangan diketahui secara pasti, sedangkan `while` digunakan ketika perulangan bergantung pada sebuah kondisi yang dinamis.'
+                'correct': '0 1 3 4'
             },
             {
-                'text': 'Kode `while True: print("Loading...")` akan menyebabkan infinite loop. Mengapa hal tersebut terjadi?',
+                'text': 'Seorang programmer sedang menganalisis sebuah masalah: "Saya perlu membuat program yang akan terus-menerus meminta input password dari pengguna, dan program baru berhenti ketika password yang dimasukkan benar." Manakah eksplanasi yang paling logis untuk memilih struktur perulangan yang tepat untuk masalah ini?',
+                'image': None,
                 'options': [
-                    'Karena kondisi `True` secara definisi akan selalu benar dan tidak pernah berubah menjadi `False`.',
-                    'Karena teks "Loading..." terlalu panjang.',
-                    'Karena komputer tidak bisa mencetak teks berulang kali.',
-                    'Karena tidak ada variabel `i`.',
-                    'Karena perintah print() tidak bisa menghentikan perulangan.'
+                    'Sebaiknya pakai while. Logika for tidak cocok karena kita tidak tahu pasti di percobaan ke-berapa pengguna akan berhasil; perulangan ini murni bergantung pada kondisi (input benar/salah).',
+                    'Sebaiknya pakai for. Kita bisa atur for i in range(100) untuk memberi 100 kali kesempatan, yang pasti sudah cukup.',
+                    'Sebaiknya pakai for. Perulangan for lebih modern dan aman dari infinite loop (perulangan tak terhingga) daripada while.',
+                    'Sebaiknya pakai while. Perulangan while adalah satu-satunya yang bisa menangani input string (teks), for hanya bisa untuk integer (angka).',
+                    'Sebaiknya pakai for atau while, keduanya sama saja. Pilihan loop tidak memengaruhi logika program sama sekali.'
                 ],
-                'correct': 'Karena kondisi `True` secara definisi akan selalu benar dan tidak pernah berubah menjadi `False`.'
+                'correct': 'Sebaiknya pakai while. Logika for tidak cocok karena kita tidak tahu pasti di percobaan ke-berapa pengguna akan berhasil; perulangan ini murni bergantung pada kondisi (input benar/salah).'
             },
             {
-                'text': 'Apa fungsi dari `i = i + 1` (atau `i += 1`) di dalam perulangan `while`?',
+                'text': 'Program Anda bertujuan menjumlahkan 10 angka, tapi hasilnya selalu lebih kecil dari seharusnya. Perulangan sudah berjalan 10 kali. Pertanyaan reflektif apa yang bisa menuntunmu ke solusi?',
+                'image': None,
                 'options': [
-                    'Untuk mencetak nilai `i` ke layar.',
-                    "Sebagai 'increment', yaitu proses menaikkan nilai variabel kontrol agar kondisi perulangan suatu saat bisa menjadi `False` dan berhenti.",
-                    'Untuk mengatur ulang nilai `i` kembali ke 1.',
-                    'Untuk memeriksa apakah `i` adalah bilangan ganjil.',
-                    'Untuk menyimpan nilai i ke dalam memori permanen.'
+                    '"Apakah saya tidak sengaja menjumlahkan i (indeks loop) bukannya nilai input yang sebenarnya?"',
+                    '"Apakah ada logika if di dalam loop yang tidak sengaja saya tambahkan, sehingga beberapa angka terlewat (tidak ikut dijumlahkan)?"',
+                    '"Apakah aku sudah memastikan variabel `total` diatur ke nilai 0 sebelum perulangan dimulai?"',
+                    '"Apakah tipe data total sudah benar? Mungkin saya salah menjumlahkan string (teks)?"',
+                    '"Apakah perulangannya benar-benar berhenti setelah 10 kali?"'
                 ],
-                'correct': "Sebagai 'increment', yaitu proses menaikkan nilai variabel kontrol agar kondisi perulangan suatu saat bisa menjadi `False` dan berhenti."
-            },
-            {
-                'text': 'Dalam perulangan `for i in range(A, B):`, iterasi akan dimulai dari nilai... dan berhenti sebelum mencapai nilai...',
-                'options': [
-                    'A+1, B+1',
-                    'A, B',
-                    'A+1, B',
-                    'A, B+1',
-                    'A, B-1'
-                ],
-                'correct': 'A, B'
-            },
-            {
-                'text': 'Manakah di antara kode berikut yang akan mencetak semua bilangan ganjil antara 1 dan 10?',
-                'options': [
-                    'for i in range(1, 10, 2): print(i)',
-                    'for i in range(1, 10): print(i)',
-                    'for i in range(1, 10): if i % 2 == 0: print(i)',
-                    'i = 1, while i < 10: print(1)',
-                    'for i in range(10): if i % 2 != 0: print(i)'
-                ],
-                'correct': 'for i in range(1, 10, 2): print(i)'
+                'correct': '"Apakah aku sudah memastikan variabel `total` diatur ke nilai 0 sebelum perulangan dimulai?"'
             }
         ]
     }

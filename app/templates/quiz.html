@@ -9,7 +9,6 @@
 <body class="main-page">
     <div class="main-container">
 
-        {# Gunakan if-else untuk memilih tampilan #}
         {% if quiz_taken %}
             
             <h1>Skor Kuis: {{ module_name | capitalize }}</h1>
@@ -31,7 +30,12 @@
                     {% set question_index = loop.index0 %}
                     <div class="quiz-question">
                         <p><b>{{ loop.index }}. {{ question.text }}</b></p>
-                        {% for option in question.options %}
+                        {% if question.image %}
+                            <div class="quiz-image-container">
+                                <img src="{{ url_for('static', filename='images/' + question.image) }}" alt="Gambar Soal" style="max-width: 100%; max-height: 300px; margin-bottom: 15px; border-radius: 8px;">
+                            </div>
+                        {% endif %}
+                                                {% for option in question.options %}
                             <div class="quiz-option">
                                 <label>
                                     <input type="radio" name="question-{{ question_index }}" value="{{ option }}">
@@ -55,7 +59,7 @@
     </div>
     {% if not quiz_taken %}
         <script>
-            // Ambil data yang dikirim dari Python
+           
             const questions = {{ quiz_data.questions | tojson }};
             const correctAnswers = {{ correct_answers | tojson }};
             const moduleName = "{{ module_name }}";
@@ -92,12 +96,11 @@
 
                 const finalScore = (score / totalQuestions) * 100;
 
-                // Tampilkan hasil skor di UI
                 scoreText.innerText = `Skor Anda: ${finalScore.toFixed(0)} (${score} dari ${totalQuestions} benar)`;
                 quizForm.style.display = 'none';
                 quizResultDiv.style.display = 'block';
 
-                // Kirim semua detail jawaban ke server
+            
                 try {
                     await fetch("{{ url_for('learning.save_quiz_attempt') }}", { // Panggil route baru
                         method: 'POST',
